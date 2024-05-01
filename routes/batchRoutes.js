@@ -148,28 +148,33 @@ router.delete('/:batchNo', async (req, res) => {
 // Route to get all class slots
 router.get('/class-slots', async (req, res) => {
   try {
-    const classSlots = await ClassSlot.find();
-    
-    if (!classSlots || classSlots.length === 0) {
-      return res.status(404).json({ error: 'No class slots found' });
+    const batches = await Batch.find({}, 'batchNo');
+    if (batches.length === 0) {
+      req.flash('error', 'No batches found');
+      return res.status(404).json({ error: 'No batches found' });
     }
-    
+
+    const classSlots = [];
+    for (const batch of batches) {
+      const batchClassSlots = await ClassSlot.find({ batchNo: batch.batchNo });
+      classSlots.push(...batchClassSlots);
+    }
+
     res.json(classSlots);
   } catch (error) {
     console.error('Error fetching class slots:', error);
+    req.flash('error', 'Failed to fetch class slots');
     res.status(500).json({ error: 'Failed to fetch class slots' });
   }
 });
 
-
-
 // Route to create a new class slot
 router.post('/class-slots', async (req, res) => {
   try {
-    const { batchNo, day, startTime, endTime, courseId, teacherId } = req.body;
+    const { batchNo, day, startTime, endTime, courseId, teacherId, roomNo } = req.body;
 
     // Validate input data
-    if (!batchNo || !day || !startTime || !endTime || !courseId || !teacherId) {
+    if (!batchNo || !day || !startTime || !endTime || !courseId || !teacherId || !roomNo) {
       return res.status(400).json({ error: 'Missing required fields' });
     }
 
@@ -186,11 +191,11 @@ router.post('/class-slots', async (req, res) => {
       endTime,
       courseId,
       teacherId,
+      roomNo,
     });
     if (conflictClassSlot) {
       return res.status(400).json({ error: 'Class slot conflict' });
     }
-
 
     // Check if there's a class slot with the same time range for the same batch and course
     const overlappingClassSlot = await ClassSlot.findOne({
@@ -198,7 +203,7 @@ router.post('/class-slots', async (req, res) => {
       day,
       startTime: { $lt: endTime }, // Check if the start time of the new slot is before the end time of an existing slot
       endTime: { $gt: startTime }, // Check if the end time of the new slot is after the start time of an existing slot
-      
+      roomId,
     });
     if (overlappingClassSlot) {
       return res.status(400).json({ error: 'Overlapping class slot' });
@@ -211,7 +216,8 @@ router.post('/class-slots', async (req, res) => {
       startTime,
       endTime,
       courseId,
-      teacherId
+      teacherId,
+      roomNo,
     });
 
     const savedClassSlot = await newClassSlot.save();
@@ -227,11 +233,10 @@ router.post('/class-slots', async (req, res) => {
   }
 });
 
-
 // Route to get a class slot by batchNo
 router.get('/class-slots/:batchNo', async (req, res) => {
   try {
-    const classSlot = await ClassSlot.findByBatchNo(req.params.batchNo);
+    const classSlot = await ClassSlot.findOne({ batchNo: req.params.batchNo });
     if (!classSlot) {
       return res.status(404).json({ error: 'Class slot not found' });
     }
@@ -245,22 +250,48 @@ router.get('/class-slots/:batchNo', async (req, res) => {
 // Route to update a class slot
 router.put('/class-slots/:batchNo', async (req, res) => {
   try {
-    const { day, startTime, endTime, courseId, teacherId } = req.body;
+    const { day, startTime, endTime, courseId, teacherId, roomNo } = req.body;
     const batchNo = req.params.batchNo;
 
     // Validate input data
-    if (!day || !startTime || !endTime || !courseId || !teacherId) {
+    if (!day || !startTime || !endTime || !courseId || !teacherId || !roomNo) {
       return res.status(400).json({ error: 'Missing required fields' });
     }
 
-    // Update the class slot
-    const updatedClassSlot = await ClassSlot.updateByBatchNo(batchNo, {
+    // Check if there's a class slot with the same time, teacher, course, and room for any other batch
+    const conflictClassSlot = await ClassSlot.findOne({
+      _id: { $ne: req.params.id }, // Exclude the current class slot being updated
       day,
       startTime,
       endTime,
       courseId,
-      teacherId
+      teacherId,
+      roomNo,
     });
+    if (conflictClassSlot) {
+      return res.status(400).json({ error: 'Class slot conflict' });
+    }
+
+    // Check if there's a class slot with the same time range for the same batch, course, and room
+    const overlappingClassSlot = await ClassSlot.findOne({
+      batchNo,
+      _id: { $ne: req.params.id }, // Exclude the current class slot being updated
+      day,
+      startTime: { $lt: endTime }, // Check if the start time of the new slot is before the end time of an existing slot
+      endTime: { $gt: startTime }, // Check if the end time of the new slot is after the start time of an existing slot
+      courseId,
+      roomNo,
+    });
+    if (overlappingClassSlot) {
+      return res.status(400).json({ error: 'Overlapping class slot' });
+    }
+
+    // Update the class slot
+    const updatedClassSlot = await ClassSlot.findOneAndUpdate(
+      { batchNo },
+      { day, startTime, endTime, courseId, teacherId, roomNo },
+      { new: true }
+    );
 
     if (!updatedClassSlot) {
       return res.status(404).json({ error: 'Class slot not found' });
@@ -276,7 +307,7 @@ router.put('/class-slots/:batchNo', async (req, res) => {
 // Route to delete a class slot
 router.delete('/class-slots/:batchNo', async (req, res) => {
   try {
-    const deleted = await ClassSlot.deleteByBatchNo(req.params.batchNo);
+    const deleted = await ClassSlot.findOneAndDelete({ batchNo: req.params.batchNo });
     if (!deleted) {
       return res.status(404).json({ error: 'Class slot not found' });
     }
@@ -286,5 +317,6 @@ router.delete('/class-slots/:batchNo', async (req, res) => {
     res.status(500).json({ error: 'Failed to delete class slot' });
   }
 });
+
 
 module.exports = router;
