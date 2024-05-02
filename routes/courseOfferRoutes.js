@@ -50,13 +50,6 @@ router.post('/', async (req, res) => {
 
 
 // Route to update a course offer
-// Request: PUT /api/course-offers/:batchNo
-// Request Body: { courseNames: ["Course1", "Course3"], batchNo: "BATCH_001" }
-// Response: { message: 'Course offer updated successfully', data: updatedCourseOffer }
-// Route to update a course offer
-// Request: PUT /api/course-offers/:batchNo
-// Request Body: { courseNames: ["Course1", "Course3"] }
-// Response: { message: 'Course offer updated successfully', data: updatedCourseOffer }
 router.put('/:batchNo', async (req, res) => {
     try {
       const { courseNames } = req.body;
