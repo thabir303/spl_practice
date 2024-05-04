@@ -11,6 +11,8 @@ const daySlotSchema = new mongoose.Schema({
 
 const DaySlot = mongoose.model('DaySlot', daySlotSchema);
 
+module.exports = DaySlot; 
+
 // DaySlot.find = async () => {
 //   return await DaySlot.find();
 // };
@@ -27,5 +29,3 @@ const DaySlot = mongoose.model('DaySlot', daySlotSchema);
 // DaySlot.insertMany = async (data) => {
 //   return await DaySlot.insertMany(data);
 // };
-
-module.exports = DaySlot;

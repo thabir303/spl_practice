@@ -3,10 +3,9 @@ const mongoose = require('mongoose');
 const Schema = mongoose.Schema;
 
 const teacherSchema = new Schema({
-  name: { type: String, required: true },
-  departmentName: String,
+  teacherName: { type: String, required: true },
+  departmentCode: { type: String,ref: "Batch", required: true, default: "IIT" },
   rank: String,
-  userName: String,
   teachersOffday: [String],
   assignedCourseNames: [String],
 });

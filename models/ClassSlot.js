@@ -19,26 +19,26 @@ const classSlotSchema = new mongoose.Schema(
 
 const ClassSlot = mongoose.model('ClassSlot', classSlotSchema);
 
-ClassSlot.find = async () => {
-  return await ClassSlot.find();
-};
+// ClassSlot.find = async () => {
+//   return await ClassSlot.find();
+// };
 
-ClassSlot.create = async (data) => {
-  const newClassSlot = new ClassSlot(data);
-  return await newClassSlot.save();
-};
+// ClassSlot.create = async (data) => {
+//   const newClassSlot = new ClassSlot(data);
+//   return await newClassSlot.save();
+// };
 
-ClassSlot.findByBatchNo = async (batchNo) => {
-  return await ClassSlot.findOne({ batchNo });
-};
+// ClassSlot.findByBatchNo = async (batchNo) => {
+//   return await ClassSlot.findOne({ batchNo });
+// };
 
-ClassSlot.updateByBatchNo = async (batchNo, data) => {
-  return await ClassSlot.findOneAndUpdate({ batchNo }, data, { new: true });
-};
+// ClassSlot.updateByBatchNo = async (batchNo, data) => {
+//   return await ClassSlot.findOneAndUpdate({ batchNo }, data, { new: true });
+// };
 
-ClassSlot.deleteByBatchNo = async (batchNo) => {
-  const result = await ClassSlot.deleteOne({ batchNo });
-  return result.deletedCount === 1;
-};
+// ClassSlot.deleteByBatchNo = async (batchNo) => {
+//   const result = await ClassSlot.deleteOne({ batchNo });
+//   return result.deletedCount === 1;
+// };
 
 module.exports = ClassSlot;

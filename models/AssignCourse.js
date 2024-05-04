@@ -1,12 +1,12 @@
-//models/AssignCourse.js
+// models/AssignCourse.js
 const mongoose = require('mongoose');
 const Schema = mongoose.Schema;
 
 const assignCourseSchema = new Schema({
-  sessionName: { type: String, required: true },
-  courseNames: [{ type: String, required: true }],
-  teacherName: { type: String, required: true },
-  batchName: { type: String, required: true },
+  semesterName: { type: String, ref: 'Semester', required: true },
+  courseNames: [{ type: String, ref: 'Course', required: true }],
+  teacherName: { type: String, ref: 'Teacher', required: true },
+  batchNo: { type: String, ref: 'Batch', required: true },
 });
 
 const AssignCourse = mongoose.model('AssignCourse', assignCourseSchema);

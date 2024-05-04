@@ -1,6 +1,8 @@
+//server.js
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
+const session = require('express-session');
 const app = express();
 app.use(cors());
 app.use(express.json());
@@ -45,10 +47,20 @@ db.once('open', async () => {
   }
 });
 
+app.use(
+  session({
+    secret: 'ihavenoSecretKey', // Replace with a strong secret key
+    resave: false,
+    saveUninitialized: true,
+  })
+);
+
 // Routes
 const adminRoutes = require('./routes/adminRoutes');
 app.use('/api/admin', adminRoutes);
 
+const authRoutes = require('./routes/authRoutes');
+app.use('/api/auth',authRoutes);
 
 const assignCourseRoutes = require('./routes/assignCourseRoutes');
 app.use('/api/assign-courses', assignCourseRoutes);
@@ -65,12 +77,16 @@ app.use('/api/course-offers', courseOfferRoutes);
 const dayRoutes = require('./routes/dayRoutes');
 app.use('/api/days', dayRoutes);
 
+const fullRoutineRoutes = require('./routes/fullRoutineRoutes');
+app.use('/api/fullRoutines', fullRoutineRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {
   console.error(err.stack);
   res.status(500).json({ error: 'Internal Server Error' });
 });
+
+
 
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {

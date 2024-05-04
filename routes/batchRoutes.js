@@ -1,15 +1,12 @@
-//routes/batchRoutes.js
+// routes/batchRoutes.js
 // Import required modules
 const express = require('express');
 const session = require('express-session');
 const flash = require('connect-flash');
 const router = express.Router();
 const Batch = require('../models/Batch');
-const Department = require('../models/Department');
-const Shift = require('../models/Shift');
+const Coordinator = require('../models/Coordinator');
 const ClassSlot = require('../models/ClassSlot');
-
-
 // Add session middleware
 router.use(session({
   secret: 'secret-key',
@@ -21,6 +18,8 @@ router.use(session({
 router.use(flash());
 
 // Route to get all batches
+// Method: GET
+// URL: /api/batches
 router.get('/', async (req, res) => {
   try {
     const batches = await Batch.find().sort({ createdAt: -1 });
@@ -32,12 +31,20 @@ router.get('/', async (req, res) => {
 });
 
 // Route to create a new batch
+// Method: POST
+// URL: /api/batches
+// Request Body:
+// {
+//   "batchNo": "B01",
+//   "coordinatorId": "C001",
+//   "coordinatorName": "John Doe"
+// }
 router.post('/', async (req, res) => {
   try {
-    const { batchNo, departmentCode, shiftCode } = req.body;
+    const { batchNo, coordinatorId, coordinatorName } = req.body;
 
     // Validate input data
-    if (!batchNo || !departmentCode || !shiftCode) {
+    if (!batchNo || !coordinatorId || !coordinatorName) {
       req.flash('error', 'Missing required fields');
       return res.status(400).json({ error: 'Missing required fields' });
     }
@@ -49,8 +56,15 @@ router.post('/', async (req, res) => {
       return res.status(400).json({ error: 'Batch already assigned' });
     }
 
+    // Check if the coordinator exists
+    // const coordinator = await Coordinator.findOne({ coordinatorId });
+    // if (!coordinator) {
+    //   req.flash('error', 'Coordinator not found');
+    //   return res.status(404).json({ error: 'Coordinator not found' });
+    // }
+
     // Create a new batch
-    const newBatch = new Batch({ batchNo, departmentCode, shiftCode });
+    const newBatch = new Batch({ batchNo, coordinatorId, coordinatorName });
     const savedBatch = await newBatch.save();
     req.flash('success', 'Batch assigned successfully');
     res.json({ message: 'Batch assigned successfully', data: savedBatch });
@@ -62,6 +76,9 @@ router.post('/', async (req, res) => {
 });
 
 // Route to get a batch by batchNo
+// Method: GET
+// URL: /api/batches/:batchNo
+// Example: /api/batches/B01
 router.get('/:batchNo', async (req, res) => {
   try {
     const batch = await Batch.findOne({ batchNo: req.params.batchNo });
@@ -78,13 +95,22 @@ router.get('/:batchNo', async (req, res) => {
 });
 
 // Route to update a batch
+// Method: PUT
+// URL: /api/batches/:batchNo
+// Request Body:
+// {
+//   "coordinatorId": "C002",
+//   "coordinatorName": "Jane Smith",
+//   "isActive": true
+// }
+// Example: /api/batches/B01
 router.put('/:batchNo', async (req, res) => {
   try {
-    const { departmentCode, shiftCode, isActive } = req.body;
+    const { coordinatorId, coordinatorName, isActive } = req.body;
     const batchNo = req.params.batchNo;
 
     // Validate input data
-    if (!departmentCode || !shiftCode) {
+    if (!coordinatorId || !coordinatorName) {
       req.flash('error', 'Missing required fields');
       return res.status(400).json({ error: 'Missing required fields' });
     }
@@ -92,18 +118,24 @@ router.put('/:batchNo', async (req, res) => {
     // Check if the batch already exists (excluding the current batch)
     const existingBatch = await Batch.findOne({
       batchNo: { $ne: batchNo },
-      departmentCode,
-      shiftCode,
+      coordinatorId,
     });
     if (existingBatch) {
       req.flash('error', 'Batch already assigned');
       return res.status(400).json({ error: 'Batch already assigned' });
     }
 
+    // Check if the coordinator exists
+    const coordinator = await Coordinator.findOne({ coordinatorId });
+    if (!coordinator) {
+      req.flash('error', 'Coordinator not found');
+      return res.status(404).json({ error: 'Coordinator not found' });
+    }
+
     // Update the batch
     const updatedBatch = await Batch.findOneAndUpdate(
       { batchNo },
-      { departmentCode, shiftCode, isActive },
+      { coordinatorId, coordinatorName, isActive },
       { new: true }
     );
     if (!updatedBatch) {
@@ -120,6 +152,9 @@ router.put('/:batchNo', async (req, res) => {
 });
 
 // Route to delete a batch
+// Method: DELETE
+// URL: /api/batches/:batchNo
+// Example: /api/batches/B01
 router.delete('/:batchNo', async (req, res) => {
   try {
     const batch = await Batch.findOneAndDelete({ batchNo: req.params.batchNo });
@@ -137,12 +172,91 @@ router.delete('/:batchNo', async (req, res) => {
 });
 
 
+// Route to update a batch
+// Method: PUT
+// URL: /api/batches/:batchNo
+// Request Body:
+// {
+//   "coordinatorId": "C002",
+//   "coordinatorName": "Jane Smith",
+//   "isActive": true
+// }
+// Example: /api/batches/B01
+// Route to update a batch
+router.put('/:batchNo', async (req, res) => {
+  try {
+    const { coordinatorId, coordinatorName, isActive } = req.body;
+    const lowercaseBatchNo = req.params.batchNo.toLowerCase(); // Convert to lowercase
+
+    // Validate input data
+    if (!coordinatorId || !coordinatorName) {
+      req.flash('error', 'Missing required fields');
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+
+    // Check if the batch already exists (excluding the current batch)
+    const existingBatch = await Batch.findOne({
+      batchNo: { $ne: lowercaseBatchNo }, // Use lowercase
+      coordinatorId,
+    });
+    if (existingBatch) {
+      req.flash('error', 'Batch already assigned');
+      return res.status(400).json({ error: 'Batch already assigned' });
+    }
+
+    // // Check if the coordinator exists
+    // const coordinator = await Coordinator.findOne({ coordinatorId });
+    // if (!coordinator) {
+    //   req.flash('error', 'Coordinator not found');
+    //   return res.status(404).json({ error: 'Coordinator not found' });
+    // }
+
+    // Update the batch
+    const updatedBatch = await Batch.findOneAndUpdate(
+      { batchNo: lowercaseBatchNo }, // Use lowercase
+      { coordinatorId, coordinatorName, isActive },
+      { new: true }
+    );
+    if (!updatedBatch) {
+      req.flash('error', 'Batch not found');
+      return res.status(404).json({ error: 'Batch not found' });
+    }
+    req.flash('success', 'Batch updated successfully');
+    res.json({ message: 'Batch updated successfully', data: updatedBatch });
+  } catch (error) {
+    console.error('Error updating batch:', error);
+    req.flash('error', 'Failed to update batch');
+    res.status(500).json({ error: 'Failed to update batch' });
+  }
+});
+
+
+
+// Route to delete a batch
+// Method: DELETE
+// URL: /api/batches/:batchNo
+// Example: /api/batches/B01
+// Route to delete a batch
+router.delete('/:batchNo', async (req, res) => {
+  try {
+    const lowercaseBatchNo = req.params.batchNo.toLowerCase(); // Convert to lowercase
+    const batch = await Batch.findOneAndDelete({ batchNo: lowercaseBatchNo });
+    if (!batch) {
+      req.flash('error', 'Batch not found');
+      return res.status(404).json({ error: 'Batch not found' });
+    }
+    req.flash('success', 'Batch deleted successfully');
+    res.json({ message: 'Batch deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting batch:', error);
+    req.flash('error', 'Failed to delete batch');
+    res.status(500).json({ error: 'Failed to delete batch' });
+  }
+});
+
 
 
 /////////////////////////////  Class-slots ////////////////////////////////
-
-
-
 
 
 // Route to get all class slots
@@ -203,7 +317,7 @@ router.post('/class-slots', async (req, res) => {
       day,
       startTime: { $lt: endTime }, // Check if the start time of the new slot is before the end time of an existing slot
       endTime: { $gt: startTime }, // Check if the end time of the new slot is after the start time of an existing slot
-      roomId,
+      roomNo,
     });
     if (overlappingClassSlot) {
       return res.status(400).json({ error: 'Overlapping class slot' });
@@ -318,5 +432,4 @@ router.delete('/class-slots/:batchNo', async (req, res) => {
   }
 });
 
-
-module.exports = router;
+module.exports = router; 
