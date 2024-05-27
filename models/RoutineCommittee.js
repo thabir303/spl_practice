@@ -1,10 +1,28 @@
-// models/RoutineCommittee.js
+//models/RoutineCommittee.js
 const mongoose = require('mongoose');
-const Schema = mongoose.Schema;
 
-const RoutineCommitteeSchema = new Schema({
-    receiver: { type: String, ref: 'User', required: true },
-    // Add other necessary fields
+const routineCommitteeSchema = new mongoose.Schema({
+  coordinatorId: {
+    type: String,
+    required: true,
+    unique: true,
+  },
+  expired_date: {
+    type: Date,
+    required: true,
+  },
+  in_committee: {
+    type: Boolean,
+    default: false,
+  },
+  request_status: {
+    type: String,
+    default: 'active',
+  },
+}, {
+  timestamps: true,
 });
 
-module.exports = mongoose.model('RoutineCommittee', RoutineCommitteeSchema);
+const RoutineCommittee = mongoose.model('RoutineCommittee', routineCommitteeSchema);
+
+module.exports = RoutineCommittee;

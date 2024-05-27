@@ -4,7 +4,7 @@ const Schema = mongoose.Schema;
 
 const teacherSchema = new Schema({
   teacherName: { type: String, required: true },
-  departmentCode: { type: String,ref: "Batch", required: true, default: "IIT" },
+  departmentName: { type: String,ref: "Batch", required: true, default: "IIT" },
   rank: String,
   teachersOffday: [String],
   assignedCourseNames: [String],

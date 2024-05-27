@@ -22,14 +22,16 @@ const generateToken = (user) => {
   return token;
 };
 
+// utils/auth.js
 const authenticateUser = async (req, res, next) => {
-  const token = req.headers.authorization ? req.headers.authorization.split(' ')[1] : null;
-
-  // If the user is the program chair, skip token verification
-  if (req.user && req.user.role === PROGRAM_CHAIR_USER.role) {
+  // Check if the program chair is logged in via the session
+  if (req.session && req.session.isProgramChairLoggedIn && req.session.user) {
+    req.user = req.session.user; // Set the user from the session
     next();
     return;
   }
+
+  const token = req.headers.authorization ? req.headers.authorization.split(' ')[1] : null;
 
   if (!token) {
     return res.status(401).json({ error: 'Unauthorized' });
@@ -48,7 +50,6 @@ const authenticateUser = async (req, res, next) => {
     res.status(401).json({ error: 'Unauthorized' });
   }
 };
-
 const authorizeRole = (...allowedRoles) => {
   return (req, res, next) => {
     if (!req.user) {
