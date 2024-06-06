@@ -12,9 +12,9 @@ const Role = mongoose.model('Role', roleSchema);
 // Define the roles and permissions
 const ROLES = {
   student: { name: 'student', permissions: ['viewRoutine'] },
-  faculty: { name: 'faculty', permissions: ['viewRoutine'] },
+  teacher: { name: 'teacher', permissions: ['viewRoutine'] },
   coordinator: { name: 'coordinator', permissions: ['viewRoutine', 'createRoutine', 'updateRoutine', 'deleteRoutine'] },
-  programChair: { name: 'programChair', permissions: ['viewRoutine', 'createRoutine', 'updateRoutine', 'deleteRoutine'] },
+  admin: { name: 'admin', permissions: ['viewRoutine', 'createRoutine', 'updateRoutine', 'deleteRoutine'] },
 };
 
 module.exports = { Role, ROLES };

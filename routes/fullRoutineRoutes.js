@@ -13,7 +13,7 @@ const TimeSlot = require("../models/TimeSlot");
 const Semester = require("../models/Semester");
 const User = require("../models/User");
 const Coordinator = require("../models/Coordinator");
-const { Role, ROLES } = require('../models/Role');
+const { Role, ROLES } = require("../models/Role");
 const {
   generateToken,
   authenticateUser,
@@ -21,10 +21,11 @@ const {
   PROGRAM_CHAIR_USER,
 } = require("../utils/auth");
 
-
 const isProgramChairOrCoordinator = (req, res, next) => {
   if (req.session.isProgramChairLoggedIn || req.session.isCoordinatorLoggedIn) {
-    req.user = { role: req.session.isProgramChairLoggedIn ? "programChair" : "coordinator" };
+    req.user = {
+      role: req.session.isProgramChairLoggedIn ? "admin" : "coordinator",
+    };
     next();
   } else {
     return res.status(401).json({ error: "Unauthorized from" });
@@ -33,77 +34,95 @@ const isProgramChairOrCoordinator = (req, res, next) => {
 
 // Route to fetch full routines
 // GET /fullRoutines/:semesterName
-router.get('/:semesterName', authenticateUser, authorizeRole('student', 'faculty', 'coordinator', 'programChair'), async (req, res) => {
-  try {
-    const semesterName = req.params.semesterName;
-    const fullRoutines = await FullRoutine.find({ semesterName }).exec();
-    res.json(fullRoutines);
-  } catch (error) {
-    console.error('Error fetching full routines:', error);
-    res.status(500).json({ error: 'Failed to fetch full routines' });
+router.get(
+  "/:semesterName",
+  authenticateUser,
+  authorizeRole("student", "teacher", "coordinator", "admin"),
+  async (req, res) => {
+    try {
+      const semesterName = req.params.semesterName;
+      const fullRoutines = await FullRoutine.find({ semesterName }).exec();
+      res.json(fullRoutines);
+    } catch (error) {
+      console.error("Error fetching full routines:", error);
+      res.status(500).json({ error: "Failed to fetch full routines" });
+    }
   }
-});
+);
 
 // Route to create a new full routine
 // POST /fullRoutines
 // Request Body: { batchNo, sectionName, dayNo, teacherName, courseName, roomNo, semesterName, timeSlotNo }
 
 // Route to create a new full routine
-router.post('/',isProgramChairOrCoordinator , async (req, res) => {
+router.post("/", isProgramChairOrCoordinator, async (req, res) => {
   try {
-    const { batchNo, sectionName, dayNo, teacherName, courseName, roomNo, semesterName, timeSlotNo } = req.body;
+    const {
+      batchNo,
+      sectionName,
+      dayNo,
+      teacherName,
+      courseName,
+      roomNo,
+      semesterName,
+      timeSlotNo,
+    } = req.body;
 
     // Validate input data
-    if (!batchNo || !sectionName || !dayNo || !teacherName || !courseName || !roomNo || !semesterName || !timeSlotNo) {
-      return res.status(400).json({ error: 'Missing required fields' });
+    if (!batchNo || !sectionName || !dayNo || !teacherName ||  !courseName ||
+        !roomNo ||
+        !semesterName ||
+        !timeSlotNo
+       ) {
+      return res.status(400).json({ error: "Missing required fields" });
     }
 
     // Check if the batch exists
     const batch = await Batch.findOne({ batchNo }).exec();
     if (!batch) {
-      return res.status(404).json({ error: 'Batch not found' });
+      return res.status(404).json({ error: "Batch not found" });
     }
 
     // Check if the section exists
     const section = await Section.findOne({ sectionName }).exec();
     if (!section) {
-      return res.status(404).json({ error: 'Section not found' });
+      return res.status(404).json({ error: "Section not found" });
     }
 
     // Check if the day exists
     const day = await Day.findOne({ dayNo }).exec();
     if (!day) {
-      return res.status(404).json({ error: 'Day not found' });
+      return res.status(404).json({ error: "Day not found" });
     }
 
     // Check if the teacher exists
     const teacher = await Teacher.findOne({ teacherName }).exec();
     if (!teacher) {
-      return res.status(404).json({ error: 'Teacher not found' });
+      return res.status(404).json({ error: "Teacher not found" });
     }
 
     // Check if the course exists
     const course = await Course.findOne({ courseName }).exec();
     if (!course) {
-      return res.status(404).json({ error: 'Course not found' });
+      return res.status(404).json({ error: "Course not found" });
     }
 
     // Check if the room exists
     const room = await Room.findOne({ roomNo }).exec();
     if (!room) {
-      return res.status(404).json({ error: 'Room not found' });
+      return res.status(404).json({ error: "Room not found" });
     }
 
     // Check if the time slot exists
     const timeSlot = await TimeSlot.findOne({ timeSlotNo }).exec();
     if (!timeSlot) {
-      return res.status(404).json({ error: 'Time slot not found' });
+      return res.status(404).json({ error: "Time slot not found" });
     }
 
     // Check if the semester exists
     const semester = await Semester.findOne({ semesterName }).exec();
     if (!semester) {
-      return res.status(404).json({ error: 'Semester not found' });
+      return res.status(404).json({ error: "Semester not found" });
     }
 
     // Create a new full routine
@@ -115,73 +134,111 @@ router.post('/',isProgramChairOrCoordinator , async (req, res) => {
       courseName,
       roomNo,
       semesterName,
-      timeSlotNo
+      timeSlotNo,
     });
 
     await fullRoutine.save();
     res.json(fullRoutine);
   } catch (error) {
-    console.error('Error creating full routine:', error);
-    res.status(500).json({ error: 'Failed to create full routine' });
+    console.error("Error creating full routine:", error);
+    res.status(500).json({ error: "Failed to create full routine" });
   }
 });
 
 // Route to fetch data for creating a new full routine
 // GET /fullRoutines/create
-router.get('/create', authenticateUser, authorizeRole('coordinator', 'programChair'), async (req, res) => {
-  try {
-    const batches = await Batch.find().exec();
-    const sections = await Section.find().exec();
-    const days = await Day.find().exec();
-    const teachers = await Teacher.find().exec();
-    const courses = await Course.find({ isActive: true }).exec();
-    const rooms = await Room.find({ isActive: true }).exec();
-    const timeSlots = await TimeSlot.find().exec();
-    const semesters = await Semester.find({ isActive: true }).exec();
+router.get(
+  "/create",
+  authenticateUser,
+  authorizeRole("coordinator", "admin"),
+  async (req, res) => {
+    try {
+      const batches = await Batch.find().exec();
+      const sections = await Section.find().exec();
+      const days = await Day.find().exec();
+      const teachers = await Teacher.find().exec();
+      const courses = await Course.find({ isActive: true }).exec();
+      const rooms = await Room.find({ isActive: true }).exec();
+      const timeSlots = await TimeSlot.find().exec();
+      const semesters = await Semester.find({ isActive: true }).exec();
 
-    res.json({ batches, sections, days, teachers, courses, rooms, timeSlots, semesters });
-  } catch (error) {
-    console.error('Error fetching data for create form:', error);
-    res.status(500).json({ error: 'Failed to fetch data for create form' });
+      res.json({
+        batches,
+        sections,
+        days,
+        teachers,
+        courses,
+        rooms,
+        timeSlots,
+        semesters,
+      });
+    } catch (error) {
+      console.error("Error fetching data for create form:", error);
+      res.status(500).json({ error: "Failed to fetch data for create form" });
+    }
   }
-});
+);
 
 // Route to edit a full routine
 // GET /fullRoutines/edit?semesterName=<semesterName>&batchNo=<batchNo>&sectionName=<sectionName>&dayNo=<dayNo>&teacherName=<teacherName>&courseName=<courseName>&roomNo=<roomNo>&timeSlotNo=<timeSlotNo>
-router.get('/:semesterName/edit', authenticateUser, authorizeRole('coordinator', 'programChair'), async (req, res) => {
-  try {
-    const { semesterName, batchNo, sectionName, dayNo, teacherName, courseName, roomNo, timeSlotNo } = req.query;
+router.get(
+  "/:semesterName/edit",
+  authenticateUser,
+  authorizeRole("coordinator", "admin"),
+  async (req, res) => {
+    try {
+      const {
+        semesterName,
+        batchNo,
+        sectionName,
+        dayNo,
+        teacherName,
+        courseName,
+        roomNo,
+        timeSlotNo,
+      } = req.query;
 
-    const fullRoutine = await FullRoutine.findOne({
-      semesterName,
-      batchNo,
-      sectionName,
-      dayNo,
-      teacherName,
-      courseName,
-      roomNo,
-      timeSlotNo,
-    }).exec();
+      const fullRoutine = await FullRoutine.findOne({
+        semesterName,
+        batchNo,
+        sectionName,
+        dayNo,
+        teacherName,
+        courseName,
+        roomNo,
+        timeSlotNo,
+      }).exec();
 
-    if (!fullRoutine) {
-      return res.status(404).json({ error: 'Full routine not found' });
+      if (!fullRoutine) {
+        return res.status(404).json({ error: "Full routine not found" });
+      }
+
+      const batches = await Batch.find().exec();
+      const sections = await Section.find().exec();
+      const days = await Day.find().exec();
+      const teachers = await Teacher.find().exec();
+      const courses = await Course.find({ isActive: true }).exec();
+      const rooms = await Room.find({ isActive: true }).exec();
+      const timeSlots = await TimeSlot.find().exec();
+      const semesters = await Semester.find({ isActive: true }).exec();
+
+      res.json({
+        fullRoutine,
+        batches,
+        sections,
+        days,
+        teachers,
+        courses,
+        rooms,
+        timeSlots,
+        semesters,
+      });
+    } catch (error) {
+      console.error("Error fetching full routine for edit:", error);
+      res.status(500).json({ error: "Failed to fetch full routine for edit" });
     }
-
-    const batches = await Batch.find().exec();
-    const sections = await Section.find().exec();
-    const days = await Day.find().exec();
-    const teachers = await Teacher.find().exec();
-    const courses = await Course.find({ isActive: true }).exec();
-    const rooms = await Room.find({ isActive: true }).exec();
-    const timeSlots = await TimeSlot.find().exec();
-    const semesters = await Semester.find({ isActive: true }).exec();
-
-    res.json({ fullRoutine, batches, sections, days, teachers, courses, rooms, timeSlots, semesters });
-  } catch (error) {
-    console.error('Error fetching full routine for edit:', error);
-    res.status(500).json({ error: 'Failed to fetch full routine for edit' });
   }
-});
+);
 
 // Route to update a full routine
 // PUT /fullRoutines
@@ -196,33 +253,13 @@ router.get('/:semesterName/edit', authenticateUser, authorizeRole('coordinator',
 //   "roomNo": "<roomNo>",
 //   "timeSlotNo": "<timeSlotNo>"
 // }
-router.put('/:semesterName', authenticateUser, authorizeRole('coordinator', 'programChair'), async (req, res) => {
-  try {
-    const { semesterName, batchNo, sectionName, dayNo, teacherName, courseName, roomNo, timeSlotNo } = req.body;
-
-    // Validate input data
-    if (!semesterName || !batchNo || !sectionName || !dayNo || !teacherName || !courseName || !roomNo || !timeSlotNo) {
-      return res.status(400).json({ error: 'Missing required fields' });
-    }
-
-    // Check if the updated full routine already exists
-    const existingFullRoutine = await FullRoutine.findOne({
-      semesterName,
-      batchNo,
-      sectionName,
-      dayNo,
-      teacherName,
-      courseName,
-      roomNo,
-      timeSlotNo,
-    });
-    if (existingFullRoutine) {
-      return res.status(400).json({ error: 'Full routine with updated data already exists' });
-    }
-
-    // Update the full routine
-    const updatedFullRoutine = await FullRoutine.findOneAndUpdate(
-      {
+router.put(
+  "/:semesterName",
+  authenticateUser,
+  authorizeRole("coordinator", "admin"),
+  async (req, res) => {
+    try {
+      const {
         semesterName,
         batchNo,
         sectionName,
@@ -231,8 +268,24 @@ router.put('/:semesterName', authenticateUser, authorizeRole('coordinator', 'pro
         courseName,
         roomNo,
         timeSlotNo,
-      },
-      {
+      } = req.body;
+
+      // Validate input data
+      if (
+        !semesterName ||
+        !batchNo ||
+        !sectionName ||
+        !dayNo ||
+        !teacherName ||
+        !courseName ||
+        !roomNo ||
+        !timeSlotNo
+      ) {
+        return res.status(400).json({ error: "Missing required fields" });
+      }
+
+      // Check if the updated full routine already exists
+      const existingFullRoutine = await FullRoutine.findOne({
         semesterName,
         batchNo,
         sectionName,
@@ -241,63 +294,95 @@ router.put('/:semesterName', authenticateUser, authorizeRole('coordinator', 'pro
         courseName,
         roomNo,
         timeSlotNo,
-      },
-      { new: true }
-    ).exec();
+      });
+      if (existingFullRoutine) {
+        return res
+          .status(400)
+          .json({ error: "Full routine with updated data already exists" });
+      }
 
-    if (!updatedFullRoutine) {
-      return res.status(404).json({ error: 'Full routine not found' });
+      // Update the full routine
+      const updatedFullRoutine = await FullRoutine.findOneAndUpdate(
+        {
+          semesterName,
+          batchNo,
+          sectionName,
+          dayNo,
+          teacherName,
+          courseName,
+          roomNo,
+          timeSlotNo,
+        },
+        {
+          semesterName,
+          batchNo,
+          sectionName,
+          dayNo,
+          teacherName,
+          courseName,
+          roomNo,
+          timeSlotNo,
+        },
+        { new: true }
+      ).exec();
+
+      if (!updatedFullRoutine) {
+        return res.status(404).json({ error: "Full routine not found" });
+      }
+
+      res.json({ message: "Successfully updated", data: updatedFullRoutine });
+    } catch (error) {
+      console.error("Error updating full routine:", error);
+      res.status(500).json({ error: "Failed to update full routine" });
     }
-
-    res.json({ message: 'Successfully updated', data: updatedFullRoutine });
-  } catch (error) {
-    console.error('Error updating full routine:', error);
-    res.status(500).json({ error: 'Failed to update full routine' });
   }
-});
+);
 
 // Route to delete a full routine
 // DELETE /fullRoutines?semesterName=<semesterName>&batchNo=<batchNo>&sectionName=<sectionName>&dayNo=<dayNo>&teacherName=<teacherName>&courseName=<courseName>&roomNo=<roomNo>&timeSlotNo=<timeSlotNo>
-router.delete('/:semesterName', authenticateUser, authorizeRole('coordinator', 'programChair'), async (req, res) => {
-  try {
-    const { semesterName, batchNo, sectionName, dayNo, teacherName, courseName, roomNo, timeSlotNo } = req.query;
+router.delete(
+  "/:semesterName",
+  authenticateUser,
+  authorizeRole("coordinator", "admin"),
+  async (req, res) => {
+    try {
+      const {
+        semesterName,
+        batchNo,
+        sectionName,
+        dayNo,
+        teacherName,
+        courseName,
+        roomNo,
+        timeSlotNo,
+      } = req.query;
 
-    const deletedFullRoutine = await FullRoutine.findOneAndDelete({
-      semesterName,
-      batchNo,
-      sectionName,
-      dayNo,
-      teacherName,
-      courseName,
-      roomNo,
-      timeSlotNo,
-    }).exec();
+      const deletedFullRoutine = await FullRoutine.findOneAndDelete({
+        semesterName,
+        batchNo,
+        sectionName,
+        dayNo,
+        teacherName,
+        courseName,
+        roomNo,
+        timeSlotNo,
+      }).exec();
 
-    if (!deletedFullRoutine) {
-      return res.status(404).json({ error: 'Full routine not found' });
+      if (!deletedFullRoutine) {
+        return res.status(404).json({ error: "Full routine not found" });
+      }
+
+      res.json({ message: "Successfully deleted", data: deletedFullRoutine });
+    } catch (error) {
+      console.error("Error deleting full routine:", error);
+      res.status(500).json({ error: "Failed to delete full routine" });
     }
-
-    res.json({ message: 'Successfully deleted', data: deletedFullRoutine });
-  } catch (error) {
-    console.error('Error deleting full routine:', error);
-    res.status(500).json({ error: 'Failed to delete full routine' });
   }
-});
+);
 
 module.exports = router;
 
-
-
-
-                        //  previous
-
-
-
-
-
-
-
-
+//  previous
 
 // const express = require("express");
 // const router = express.Router();
@@ -315,7 +400,6 @@ module.exports = router;
 // const { Role, ROLES } = require('../models/Role');
 // // const { authenticateUser, authorizeRole } = require('../utils/auth');
 
-
 // // Middleware to check if the user is authorized
 // const isAuthorized = (requiredRoles) => {
 //   return (req, res, next) => {
@@ -331,7 +415,7 @@ module.exports = router;
 
 // // Route to fetch full routines
 // // GET /fullRoutines/:semesterName
-// router.get('/:semesterName', isAuthorized(['student', 'faculty', 'coordinator', 'programChair']), async (req, res) => {
+// router.get('/:semesterName', isAuthorized(['student', 'teacher', 'coordinator', 'programChair']), async (req, res) => {
 //   try {
 //     const semesterName = req.params.semesterName;
 //     const fullRoutines = await FullRoutine.find({ semesterName }).exec();
@@ -341,7 +425,6 @@ module.exports = router;
 //     res.status(500).json({ error: 'Failed to fetch full routines' });
 //   }
 // });
-
 
 // // Route to create a new full routine
 // // POST /fullRoutines
@@ -389,7 +472,6 @@ module.exports = router;
 //     res.status(500).json({ error: 'Failed to fetch data for create form' });
 //   }
 // });
-
 
 // // Route to edit a full routine
 // // GET /fullRoutines/edit/:routineId
@@ -523,4 +605,3 @@ module.exports = router;
 //     res.status(500).json({ error: "Failed to delete full routine" });
 //   }
 // });
-

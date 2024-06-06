@@ -1,11 +1,11 @@
-// models/CourseOffer.js
-const mongoose = require('mongoose');
+// // models/CourseOffer.js
+// const mongoose = require('mongoose');
 
-const courseOfferSchema = new mongoose.Schema({
-  courseNames: [{ type: String, ref: 'Course', required: true }],
-  semesterName: { type: String, ref: 'Semester', required: true },
-});
+// const courseOfferSchema = new mongoose.Schema({
+//   courseIds: [{ type: String, ref: 'Course', required: true }],
+//   semesterName: { type: String, ref: 'Semester', required: true },
+// });
 
-const CourseOffer = mongoose.model('CourseOffer', courseOfferSchema);
+// const CourseOffer = mongoose.model('CourseOffer', courseOfferSchema);
 
-module.exports = CourseOffer;
+// module.exports = CourseOffer;

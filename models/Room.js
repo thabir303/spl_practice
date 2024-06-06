@@ -18,12 +18,8 @@ const roomSchema = new mongoose.Schema({
   },
   roomType: {
     type: String,
-    required: true,
+    // required: true,
     enum: ['Theory', 'Lab'], // Room type can only be 'Theory' or 'Lab'
-  },
-  capacity: {
-    type: Number,
-    required: true,
   },
 });
 

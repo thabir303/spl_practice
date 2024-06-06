@@ -67,31 +67,6 @@ db.once('open', async () => {
     //console.error('Error creating days:', error);
   }
 
-  // try {
-  //   // Define the semester names to be created
-  //   const semesterNamesToCreate = [
-  //     { semesterName: '1st' },
-  //     { semesterName: '2nd' },
-  //     { semesterName: '3rd' },
-  //     { semesterName: '4th' },
-  //     { semesterName: '5th' },
-  //     { semesterName: '6th' },
-  //     { semesterName: '7th' },
-  //     { semesterName: '8th' },
-  //   ];
-
-  //   // Check if semester names already exist in the database
-  //   const existingSemesters = await Semester.find();
-  //   if (existingSemesters.length === 0) {
-  //     // Create the semester names in the database
-  //     const createdSemesters = await Semester.insertMany(semesterNamesToCreate);
-  //     //console.log('Semesters created:', createdSemesters);
-  //   } else {
-  //     //console.log('Semesters already exist in the database.');
-  //   }
-  // } catch (error) {
-  //   //console.error('Error creating semesters:', error);
-  // }
 
 });
 
@@ -120,8 +95,11 @@ app.use('/api/batches', batchRoutes);
 const classSlotsRoutes = require('./routes/classSlotsRoutes');
 app.use('/api/class-slots', classSlotsRoutes);
 
-const courseOfferRoutes = require('./routes/courseOfferRoutes');
-app.use('/api/course-offers', courseOfferRoutes);
+const courseRoutes = require('./routes/courseRoutes');
+app.use('/api/courses',courseRoutes);
+
+// const courseOfferRoutes = require('./routes/courseOfferRoutes');
+// app.use('/api/course-offers', courseOfferRoutes);
 
 const dayRoutes = require('./routes/dayRoutes');
 app.use('/api/days', dayRoutes);
@@ -134,6 +112,9 @@ app.use('/api/rooms', roomRoutes);
 
 const semesterRoutes =require('./routes/semesterRoutes');
 app.use('/api/semesters',semesterRoutes);
+
+const teacherRoutes = require('./routes/teacherRoutes');
+app.use('/api/teachers',teacherRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {

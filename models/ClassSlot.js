@@ -3,21 +3,24 @@ const mongoose = require('mongoose');
 
 const classSlotSchema = new mongoose.Schema(
   {
-    batchNo: { type: String, required: true },
+    semesterName: { type: String, required: true },
     day: { type: String, required: true },
     startTime: { type: String, required: true },
     endTime: { type: String, required: true },
     courseId: { type: String, required: true },
     teacherId: { type: String, required: true },
     roomNo: { type: String, required: true },
+    section: { type: String, required: true },
+    classType: { type: String, required: true, enum: ['Lab', 'Theory'] }
   },
   {
-    timestamps: true,
-    unique: true, // Make the combination of fields unique
+    timestamps: true
   }
 );
 
 const ClassSlot = mongoose.model('ClassSlot', classSlotSchema);
+module.exports = ClassSlot;
+
 
 // ClassSlot.find = async () => {
 //   return await ClassSlot.find();
@@ -41,4 +44,3 @@ const ClassSlot = mongoose.model('ClassSlot', classSlotSchema);
 //   return result.deletedCount === 1;
 // };
 
-module.exports = ClassSlot;
