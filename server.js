@@ -5,7 +5,7 @@ const session = require('express-session');
 
 const app = express();
 app.use(cors({
-  origin: 'http://localhost:5173', // Replace with the origin of your frontend application
+  origin: 'http://localhost:3000', // Replace with the origin of your frontend application
   credentials: true,
 }));
 app.use(express.json());

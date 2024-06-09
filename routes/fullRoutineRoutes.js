@@ -32,7 +32,22 @@ const isProgramChairOrCoordinator = (req, res, next) => {
   }
 };
 
-// Route to fetch full routines
+// Fetch the full routine
+router.get('/', async (req, res) => {
+  try {
+    const fullRoutine = await FullRoutine.find()
+      .populate('teacherId', 'teacherName')
+      .populate('courseId')
+      .populate('semesterName')
+      .populate('dayNo')
+      .populate('roomNo')
+      .populate('sectionName');
+    res.json(fullRoutine);
+  } catch (error) {
+    console.error('Error fetching full routine:', error);
+    res.status(500).json({ error: 'Failed to fetch full routine' });
+  }
+});
 // GET /fullRoutines/:semesterName
 router.get(
   "/:semesterName",
@@ -53,7 +68,7 @@ router.get(
 // Request Body: { batchNo, sectionName, dayNo, teacherName, courseName, roomNo, semesterName, timeSlotNo }
 
 // Route to create a new full routine
-router.post("/", isProgramChairOrCoordinator, async (req, res) => {
+router.post("/", async (req, res) => {
   try {
     const {
       batchNo,
@@ -113,9 +128,9 @@ router.post("/", isProgramChairOrCoordinator, async (req, res) => {
 
     // Check if the time slot exists
     const timeSlot = await TimeSlot.findOne({ timeSlotNo }).exec();
-    if (!timeSlot) {
-      return res.status(404).json({ error: "Time slot not found" });
-    }
+    //if (!timeSlot) {
+    //  return res.status(404).json({ error: "Time slot not found" });
+   // }
 
     // Check if the semester exists
     const semester = await Semester.findOne({ semesterName }).exec();
@@ -371,6 +386,13 @@ router.delete(
 );
 
 module.exports = router;
+
+
+
+
+
+
+
 
 //  previous
 

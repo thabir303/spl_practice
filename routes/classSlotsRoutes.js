@@ -1,3 +1,4 @@
+//routes/classSlotsRoutes.js
 const express = require('express');
 const router = express.Router();
 const ClassSlot = require('../models/ClassSlot');

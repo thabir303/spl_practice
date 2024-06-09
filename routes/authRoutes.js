@@ -167,6 +167,7 @@ router.post("/approveUser", async (req, res) => {
     res.status(500).json({ error: "Failed to approve user", details: error.message });
   }
 });
+
 // Route for user login (including students and teacher)
 
 
@@ -179,12 +180,12 @@ router.post("/login", async (req, res) => {
     console.log("Login request received with:", { email, password });
 
     // Check if the user is the program chair
-    if (email === PROGRAM_CHAIR_USER.email &&
-      password === PROGRAM_CHAIR_USER.password) {
+    if (email === PROGRAM_CHAIR_USER.email && password === PROGRAM_CHAIR_USER.password) {
       req.session.isProgramChairLoggedIn = true;
       req.session.user = PROGRAM_CHAIR_USER; // Store user info in session
       const token = generateToken(PROGRAM_CHAIR_USER); // Generate token
-      return res.json({ ...PROGRAM_CHAIR_USER, token, role: 'admin' });    }
+      return res.json({ ...PROGRAM_CHAIR_USER, token, role: 'admin' });
+    }
 
     // Check if the user exists
     const user = await User.findOne({ email });
@@ -198,7 +199,15 @@ router.post("/login", async (req, res) => {
       return res.status(400).json({ error: "Invalid credentials" });
     }
 
-    // Check if the user's status is approved
+    // Check if the user is a coordinator
+    if (user.role === "coordinator") {
+      req.session.isCoordinatorLoggedIn = true;
+      req.session.user = { role: "coordinator", email: user.email }; // Store user info in session
+      const token = generateToken(user); // Generate token
+      return res.json({ message: "Coordinator logged in successfully", token, role: user.role });
+    }
+
+    // Check if the user's status is approved for other roles
     if (user.status !== "approved") {
       return res.status(403).json({
         error: "Your Account is not approved yet. You will be notified once approved.",
@@ -210,14 +219,6 @@ router.post("/login", async (req, res) => {
       role: user.role,
       status: user.status,
     };
-
-    // Check if the user is a coordinator
-    if (user.role === "coordinator") {
-      req.session.isCoordinatorLoggedIn = true;
-      req.session.user = { role: "coordinator", email: user.email }; // Store user info in session
-      const token = generateToken(user); // Generate token
-      return res.json({ message: "Coordinator logged in successfully", token, role: user.role });
-    }
 
     // Generate a token for the user
     const token = generateToken(user);
@@ -271,6 +272,12 @@ router.post("/coordinators", async (req, res) => {
     if (existingCoordinatorId) {
       return res.status(400).json({ error: "CoordinatorId already exists" });
     }
+
+     // Check if the batchNo is unique
+     const existingBatchNo = await Coordinator.findOne({ batchNo });
+     if (existingBatchNo) {
+       return res.status(400).json({ error: "Batch number already assigned to another coordinator" });
+     }
 
     const hashedPassword = await bcrypt.hash(password, 10);
 
@@ -331,6 +338,146 @@ router.post("/coordinators", async (req, res) => {
   } catch (error) {
     console.error("Error creating coordinator:", error);
     res.status(500).json({ error: "Failed to create coordinator" });
+  }
+});
+
+// Route to get all coordinators
+router.get('/coordinators', async (req, res) => {
+  try {
+    const coordinators = await Coordinator.find().lean();
+
+    // Fetch the in_committee status for each coordinator
+    const coordinatorsWithCommitteeStatus = await Promise.all(coordinators.map(async (coordinator) => {
+      const routineCommittee = await RoutineCommittee.findOne({ coordinatorId: coordinator.coordinatorId });
+      return {
+        ...coordinator,
+        in_committee: !!routineCommittee,
+      };
+    }));
+
+    res.json(coordinatorsWithCommitteeStatus);
+  } catch (error) {
+    console.error('Error fetching coordinators:', error);
+    res.status(500).json({ error: 'Failed to fetch coordinators' });
+  }
+});
+
+// Route to get a coordinator by ID
+router.get('/coordinators/:coordinatorId', async (req, res) => {
+  try {
+    const coordinatorId = req.params.coordinatorId;
+    const coordinator = await Coordinator.findOne({ coordinatorId }).lean();
+
+    if (!coordinator) {
+      return res.status(404).json({ error: 'Coordinator not found' });
+    }
+
+    // Fetch the in_committee status
+    const routineCommittee = await RoutineCommittee.findOne({ coordinatorId });
+    const coordinatorWithCommitteeStatus = {
+      ...coordinator,
+      in_committee: !!routineCommittee,
+    };
+
+    res.json(coordinatorWithCommitteeStatus);
+  } catch (error) {
+    console.error('Error fetching coordinator:', error);
+    res.status(500).json({ error: 'Failed to fetch coordinator' });
+  }
+});
+
+
+
+// Route to update a coordinator
+router.put('/coordinators/:coordinatorId', async (req, res) => {
+  try {
+    const { coordinatorId } = req.params;
+    const { name, email, batchNo, expired_date } = req.body;
+
+    // Check if the coordinator exists
+    const coordinator = await Coordinator.findOne({ coordinatorId });
+    if (!coordinator) {
+      return res.status(404).json({ error: 'Coordinator not found' });
+    }
+
+     // Check if the batchNo is unique
+     if (batchNo && batchNo !== coordinator.batchNo) {
+      const existingBatchNo = await Coordinator.findOne({ batchNo });
+      if (existingBatchNo) {
+        return res.status(400).json({ error: "Batch number already assigned to another coordinator" });
+      }
+    }
+
+    // Update the coordinator details
+    coordinator.coordinatorName = name || coordinator.coordinatorName;
+    coordinator.email = email || coordinator.email;
+    coordinator.batchNo = batchNo || coordinator.batchNo;
+    coordinator.expired_date = expired_date ? new Date(expired_date) : coordinator.expired_date;
+
+    await coordinator.save();
+
+    // Also update the User document if email was changed
+    if (email) {
+      const user = await User.findOne({ userId: coordinatorId });
+      user.email = email;
+      await user.save();
+    }
+
+    res.json({ message: 'Coordinator updated successfully', data: coordinator });
+  } catch (error) {
+    console.error('Error updating coordinator:', error);
+    res.status(500).json({ error: 'Failed to update coordinator' });
+  }
+});
+
+// Route to delete a coordinator
+router.delete('/coordinators/:coordinatorId', async (req, res) => {
+  try {
+    const { coordinatorId } = req.params;
+
+    const deletedCoordinator = await Coordinator.findOneAndDelete({ coordinatorId });
+    if (!deletedCoordinator) {
+      return res.status(404).json({ error: 'Coordinator not found' });
+    }
+
+    // Also delete the corresponding User document
+    await User.findOneAndDelete({ userId: coordinatorId });
+
+    res.json({ message: 'Coordinator deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting coordinator:', error);
+    res.status(500).json({ error: 'Failed to delete coordinator' });
+  }
+});
+
+
+router.post("/routine-committees", async (req, res) => {
+  try {
+    const { coordinatorId } = req.body;
+
+    // Check if the coordinator exists
+    const coordinator = await Coordinator.findOne({ coordinatorId });
+    if (!coordinator) {
+      return res.status(404).json({ error: 'Coordinator not found' });
+    }
+
+    // Check if the routine committee already exists
+    const existingRoutineCommittee = await RoutineCommittee.findOne({ coordinatorId });
+    if (existingRoutineCommittee) {
+      return res.status(400).json({ error: 'Routine committee already exists for this coordinator' });
+    }
+
+    const routineCommittee = new RoutineCommittee({
+      coordinatorId,
+      expired_date: coordinator.expired_date,
+    });
+
+    await routineCommittee.save();
+
+    res.json({ message: 'Routine committee added successfully', data: routineCommittee });
+  } catch (error) {
+    console.error('Error adding routine committee:', error);
+    res.status(500).json({ error: 'Failed to add routine committee' });
   }
 });
 

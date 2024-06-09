@@ -4,6 +4,7 @@ const router = express.Router();
 const User = require('../models/User');
 const Teacher = require('../models/Teacher');
 const Student = require('../models/Student');
+const Batch = require('../models/Batch');
 
 // Route to get all pending users
 router.get('/pending-users', async (req, res) => {
@@ -27,20 +28,43 @@ router.post('/approve-user', async (req, res) => {
     if (user.status === 'approved') {
       return res.status(400).json({ error: 'User already approved' });
     }
+
+    // Check for the existence of batchNo for students
+    if (user.role === 'student' && !batchNo) {
+      return res.status(400).json({ error: 'Batch number is required for student approval' });
+    }
+
+    // Check for the existence of teacherId for teachers
+    if (user.role === 'teacher' && !teacherId) {
+      return res.status(400).json({ error: 'Teacher ID is required for teacher approval' });
+    }
+
+    // Check if the teacherId already exists
+    if (user.role === 'teacher') {
+      const existingTeacher = await Teacher.findOne({ $or: [{ teacherId }, { email: user.email }] });
+      if (existingTeacher) {
+        return res.status(400).json({ error: 'Teacher ID or email already exists. Please provide a different Teacher ID.' });
+      }
+    }
+
+    // Check if the batchNo already exists for students
+    if (user.role === 'student') {
+      const batchExists = await Batch.findOne({ batchNo }); // Assuming you have a Batch model to validate batch numbers
+      if (!batchExists) {
+        return res.status(400).json({ error: 'Batch number does not exist. Please create the batch first.' });
+      }
+
+      const existingStudent = await Student.findOne({ $or: [{ studentId: user.userId }, { email: user.email }] });
+      if (existingStudent) {
+        return res.status(400).json({ error: 'Student ID or email already exists. Please provide a different email or contact support.' });
+      }
+    }
+
     user.status = 'approved';
     await user.save();
 
     // Save user data to the respective schema
     if (user.role === 'teacher') {
-      if (!teacherId) {
-        return res.status(400).json({ error: 'teacherId is required for teacher approval' });
-      }
-
-      const existingTeacher = await Teacher.findOne({ $or: [{ teacherId }, { email: user.email }] });
-      if (existingTeacher) {
-        return res.status(400).json({ error: 'Teacher ID or email already exists' });
-      }
-
       const newTeacher = new Teacher({
         teacherId,
         teacherName: user.name,
@@ -51,15 +75,6 @@ router.post('/approve-user', async (req, res) => {
       await newTeacher.save();
       console.log('Teacher created:', newTeacher);
     } else if (user.role === 'student') {
-      if (!batchNo) {
-        return res.status(400).json({ error: 'batchNo is required for student approval' });
-      }
-
-      const existingStudent = await Student.findOne({ $or: [{ studentId: user.userId }, { email: user.email }] });
-      if (existingStudent) {
-        return res.status(400).json({ error: 'Student ID or email already exists' });
-      }
-
       const newStudent = new Student({
         studentId: user.userId,
         name: user.name,
@@ -79,6 +94,7 @@ router.post('/approve-user', async (req, res) => {
     res.status(500).json({ error: 'Failed to approve user', details: error.message });
   }
 });
+
 
 // Route to get all users
 router.get('/users', async (req, res) => {
