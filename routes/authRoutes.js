@@ -105,7 +105,7 @@ router.post("/signup", async (req, res) => {
   }
 });
 
-router.post("/approveUser", isProgramChair, async (req, res) => {
+router.post("/approveUser", async (req, res) => {
   try {
     const { email, batchNo, teacherId } = req.body;
     const user = await User.findOne({ email });
@@ -176,6 +176,7 @@ router.post("/approveUser", isProgramChair, async (req, res) => {
 router.post("/login", async (req, res) => {
   try {
     const { email, password } = req.body;
+    console.log("Login request received with:", { email, password });
 
     // Check if the user is the program chair
     if (email === PROGRAM_CHAIR_USER.email &&
@@ -183,8 +184,7 @@ router.post("/login", async (req, res) => {
       req.session.isProgramChairLoggedIn = true;
       req.session.user = PROGRAM_CHAIR_USER; // Store user info in session
       const token = generateToken(PROGRAM_CHAIR_USER); // Generate token
-      return res.json({ ...PROGRAM_CHAIR_USER, token }); // Include token in response
-    }
+      return res.json({ ...PROGRAM_CHAIR_USER, token, role: 'admin' });    }
 
     // Check if the user exists
     const user = await User.findOne({ email });
@@ -201,7 +201,7 @@ router.post("/login", async (req, res) => {
     // Check if the user's status is approved
     if (user.status !== "approved") {
       return res.status(403).json({
-        error: "Account not approved. Please contact the program chair.",
+        error: "Your Account is not approved yet. You will be notified once approved.",
       });
     }
 
@@ -242,12 +242,12 @@ router.post("/logout", (req, res) => {
 });
 
 // Example protected route
-router.get("/protected", isUserApproved, (req, res) => {
+router.get("/protected", (req, res) => {
   res.json({ message: "You have access to this protected route." });
 });
 
 // Route for creating a new coordinator (accessible only to program chair)
-router.post("/coordinators", isProgramChair, async (req, res) => {
+router.post("/coordinators", async (req, res) => {
   try {
     const { name, email, password, batchNo, coordinatorId, expired_date } =
       req.body;
@@ -336,7 +336,7 @@ router.post("/coordinators", isProgramChair, async (req, res) => {
 
 // Route to get all routine committees
 // GET /api/routine-committees
-router.get("/routine-committees", isProgramChair, async (req, res) => {
+router.get("/routine-committees",  async (req, res) => {
   try {
     const routineCommittees = await RoutineCommittee.find();
     res.json(routineCommittees);
@@ -350,7 +350,6 @@ router.get("/routine-committees", isProgramChair, async (req, res) => {
 // GET /api/routine-committees/:coordinatorId
 router.get(
   "/routine-committees/:coordinatorId",
-  isProgramChair,
   async (req, res) => {
     try {
       const coordinatorId = req.params.coordinatorId;
@@ -375,7 +374,6 @@ router.get(
 // Request Body: { expired_date }
 router.put(
   "/routine-committees/:coordinatorId",
-  isProgramChair,
   async (req, res) => {
     try {
       const coordinatorId = req.params.coordinatorId;
@@ -416,7 +414,6 @@ router.put(
 // DELETE /api/routine-committees/:coordinatorId
 router.delete(
   "/routine-committees/:coordinatorId",
-  isProgramChair,
   async (req, res) => {
     try {
       const coordinatorId = req.params.coordinatorId;

@@ -14,7 +14,7 @@ const isProgramChair = (req, res, next) => {
 };
 
 // Route to create a new room
-router.post('/', isProgramChair, async (req, res) => {
+router.post('/', async (req, res) => {
   try {
     const { roomNo, roomType, isActive } = req.body;
 

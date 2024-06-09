@@ -26,7 +26,7 @@ const isAuthorizedUser = (req, res, next) => {
 };
 
 // Create a new class slot
-router.post('/', isAuthorizedUser, async (req, res) => {
+router.post('/',  async (req, res) => {
   try {
     const { semesterName, day, startTime, endTime, courseId, teacherId, roomNo, section, classType } = req.body;
 
@@ -118,42 +118,20 @@ router.post('/', isAuthorizedUser, async (req, res) => {
 
 
 // Fetch all class slots
-router.get('/', isAuthorizedUser, async (req, res) => {
+router.get('/', async (req, res) => {
   try {
-    const semesters = await Semester.find({}, 'semesterName');
-
-    if (semesters.length === 0) {
-      req.flash('error', 'No semesters found');
-      return res.status(404).json({ error: 'No semesters found' });
-    }
-
-    const classSlots = [];
-
-    for (const semester of semesters) {
-      const semesterClassSlots = await ClassSlot.find({ semesterName: semester.semesterName });
-
-      if (semesterClassSlots.length > 0) {
-        classSlots.push(...semesterClassSlots);
-      }
-    }
-
-    if (classSlots.length === 0) {
-      req.flash('error', 'No class slots found');
-      return res.status(404).json({ error: 'No class slots found' });
-    }
-
+    const classSlots = await ClassSlot.find().populate('teacherId', 'teacherName');
     res.json(classSlots);
   } catch (error) {
     console.error('Error fetching class slots:', error);
-    req.flash('error', 'Failed to fetch class slots');
     res.status(500).json({ error: 'Failed to fetch class slots' });
   }
 });
 
-// Route to get a class slot by semesterName
-router.get('/:semesterName', isAuthorizedUser, async (req, res) => {
+// Fetch a single class slot by ID and populate teacher name
+router.get('/:id', async (req, res) => {
   try {
-    const classSlot = await ClassSlot.findOne({ semesterName: req.params.semesterName });
+    const classSlot = await ClassSlot.findById(req.params.id).populate('teacherId', 'teacherName');
     if (!classSlot) {
       return res.status(404).json({ error: 'Class slot not found' });
     }
@@ -164,14 +142,13 @@ router.get('/:semesterName', isAuthorizedUser, async (req, res) => {
   }
 });
 
-// Route to update a class slot
-router.put('/:semesterName', isAuthorizedUser, async (req, res) => {
+// Route to update a class slot by ID
+router.put('/:id', async (req, res) => {
   try {
-    const { day, startTime, endTime, courseId, teacherId, roomNo, section, classType } = req.body;
-    const semesterName = req.params.semesterName;
+    const { semesterName, day, startTime, endTime, courseId, teacherId, roomNo, section, classType } = req.body;
 
     // Validate input data
-    if (!day || !startTime || !endTime || !courseId || !teacherId || !roomNo || !section || !classType) {
+    if (!semesterName || !day || !startTime || !endTime || !courseId || !teacherId || !roomNo || !section || !classType) {
       return res.status(400).json({ error: 'Missing required fields' });
     }
 
@@ -194,45 +171,55 @@ router.put('/:semesterName', isAuthorizedUser, async (req, res) => {
     const sectionExists = await Section.findOne({ sectionName: section });
     if (!sectionExists) return res.status(404).json({ error: 'Section not found' });
 
-    if (!['lab', 'theory'].includes(classType)) {
+    if (!['Lab', 'Theory'].includes(classType)) {
       return res.status(400).json({ error: 'Invalid class type' });
-
     }
 
-    // Check if there's a class slot with the same time, teacher, course, and room for any other semester
-    const conflictClassSlot = await ClassSlot.findOne({
+    // Check for time conflicts within the same semester, room, teacher, and section
+    const conflictMessages = [];
+
+    const conflictClassSlots = await ClassSlot.find({
       _id: { $ne: req.params.id }, // Exclude the current class slot being updated
+      semesterName,
+      day,
+      $or: [
+        { startTime: { $lt: endTime }, endTime: { $gt: startTime } }
+      ]
+    });
+
+    conflictClassSlots.forEach(slot => {
+      if (slot.roomNo === roomNo) {
+        if (slot.section === section) {
+          conflictMessages.push('Conflict: Overlapping class slot in the same room for the same section.');
+        } else {
+          conflictMessages.push('Conflict: Overlapping class slot in the same room for a different section.');
+        }
+      }
+      if (slot.teacherId === teacherId) {
+        if (slot.section === section) {
+          conflictMessages.push('Conflict: Overlapping class slot with the same teacher for the same section.');
+        } else {
+          conflictMessages.push('Conflict: Overlapping class slot with the same teacher for a different section.');
+        }
+      }
+    });
+
+    if (conflictMessages.length > 0) {
+      return res.status(400).json({ error: conflictMessages });
+    }
+
+    // Update the class slot
+    const updatedClassSlot = await ClassSlot.findByIdAndUpdate(req.params.id, {
+      semesterName,
       day,
       startTime,
       endTime,
       courseId,
       teacherId,
       roomNo,
-    });
-    if (conflictClassSlot) {
-      return res.status(400).json({ error: 'Class slot conflict' });
-    }
-
-    // Check if there's a class slot with the same time range for the same semester, course, and room
-    const overlappingClassSlot = await ClassSlot.findOne({
-      semesterName,
-      _id: { $ne: req.params.id }, // Exclude the current class slot being updated
-      day,
-      startTime: { $lt: endTime }, // Check if the start time of the new slot is before the end time of an existing slot
-      endTime: { $gt: startTime }, // Check if the end time of the new slot is after the start time of an existing slot
-      courseId,
-      roomNo,
-    });
-    if (overlappingClassSlot) {
-      return res.status(400).json({ error: 'Overlapping class slot' });
-    }
-
-    // Update the class slot
-    const updatedClassSlot = await ClassSlot.findOneAndUpdate(
-      { semesterName },
-      { day, startTime, endTime, courseId, teacherId, roomNo, section, classType },
-      { new: true }
-    );
+      section,
+      classType
+    }, { new: true });
 
     if (!updatedClassSlot) {
       return res.status(404).json({ error: 'Class slot not found' });
@@ -245,11 +232,11 @@ router.put('/:semesterName', isAuthorizedUser, async (req, res) => {
   }
 });
 
-// Route to delete a class slot
-router.delete('/:semesterName', isAuthorizedUser, async (req, res) => {
+// Route to delete a class slot by ID
+router.delete('/:id', async (req, res) => {
   try {
-    const deleted = await ClassSlot.findOneAndDelete({ semesterName: req.params.semesterName });
-    if (!deleted) {
+    const deletedClassSlot = await ClassSlot.findByIdAndDelete(req.params.id);
+    if (!deletedClassSlot) {
       return res.status(404).json({ error: 'Class slot not found' });
     }
     res.json({ message: 'Class slot deleted successfully' });
@@ -260,6 +247,7 @@ router.delete('/:semesterName', isAuthorizedUser, async (req, res) => {
 });
 
 module.exports = router;
+
 
 
 

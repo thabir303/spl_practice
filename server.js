@@ -4,7 +4,10 @@ const cors = require('cors');
 const session = require('express-session');
 
 const app = express();
-app.use(cors());
+app.use(cors({
+  origin: 'http://localhost:5173', // Replace with the origin of your frontend application
+  credentials: true,
+}));
 app.use(express.json());
 
 // MongoDB connection
@@ -115,6 +118,21 @@ app.use('/api/semesters',semesterRoutes);
 
 const teacherRoutes = require('./routes/teacherRoutes');
 app.use('/api/teachers',teacherRoutes);
+
+
+const studentRoutes = require('./routes/studentRoutes');
+app.use('/api/students', studentRoutes);
+
+// New route to fetch sections
+app.get('/api/sections', async (req, res) => {
+  try {
+    const sections = await Section.find();
+    res.json(sections);
+  } catch (error) {
+    console.error('Error fetching sections:', error);
+    res.status(500).json({ error: 'Failed to fetch sections' });
+  }
+});
 
 // Error handling middleware
 app.use((err, req, res, next) => {

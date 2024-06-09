@@ -36,8 +36,6 @@ const isProgramChairOrCoordinator = (req, res, next) => {
 // GET /fullRoutines/:semesterName
 router.get(
   "/:semesterName",
-  authenticateUser,
-  authorizeRole("student", "teacher", "coordinator", "admin"),
   async (req, res) => {
     try {
       const semesterName = req.params.semesterName;
@@ -149,8 +147,6 @@ router.post("/", isProgramChairOrCoordinator, async (req, res) => {
 // GET /fullRoutines/create
 router.get(
   "/create",
-  authenticateUser,
-  authorizeRole("coordinator", "admin"),
   async (req, res) => {
     try {
       const batches = await Batch.find().exec();
@@ -183,8 +179,6 @@ router.get(
 // GET /fullRoutines/edit?semesterName=<semesterName>&batchNo=<batchNo>&sectionName=<sectionName>&dayNo=<dayNo>&teacherName=<teacherName>&courseName=<courseName>&roomNo=<roomNo>&timeSlotNo=<timeSlotNo>
 router.get(
   "/:semesterName/edit",
-  authenticateUser,
-  authorizeRole("coordinator", "admin"),
   async (req, res) => {
     try {
       const {
@@ -255,8 +249,6 @@ router.get(
 // }
 router.put(
   "/:semesterName",
-  authenticateUser,
-  authorizeRole("coordinator", "admin"),
   async (req, res) => {
     try {
       const {
@@ -342,8 +334,6 @@ router.put(
 // DELETE /fullRoutines?semesterName=<semesterName>&batchNo=<batchNo>&sectionName=<sectionName>&dayNo=<dayNo>&teacherName=<teacherName>&courseName=<courseName>&roomNo=<roomNo>&timeSlotNo=<timeSlotNo>
 router.delete(
   "/:semesterName",
-  authenticateUser,
-  authorizeRole("coordinator", "admin"),
   async (req, res) => {
     try {
       const {

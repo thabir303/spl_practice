@@ -4,20 +4,9 @@ const router = express.Router();
 const User = require('../models/User');
 const Teacher = require('../models/Teacher');
 const Student = require('../models/Student');
-const { authenticateUser, authorizeRole } = require('../utils/auth');
-
-// Middleware to ensure the user is the program chair
-const isProgramChair = (req, res, next) => {
-  if (req.session.isProgramChairLoggedIn) {
-    req.user = { role: 'admin' };
-    next();
-  } else {
-    return res.status(401).json({ error: 'Unauthorized' });
-  }
-};
 
 // Route to get all pending users
-router.get('/pending-users', authenticateUser, authorizeRole('admin'), async (req, res) => {
+router.get('/pending-users', async (req, res) => {
   try {
     const pendingUsers = await User.find({ status: 'pending' });
     res.json(pendingUsers);
@@ -28,7 +17,7 @@ router.get('/pending-users', authenticateUser, authorizeRole('admin'), async (re
 });
 
 // Route to approve a user
-router.post('/approve-user', authenticateUser, authorizeRole('admin'), async (req, res) => {
+router.post('/approve-user', async (req, res) => {
   try {
     const { email, batchNo, teacherId } = req.body;
     const user = await User.findOne({ email });
@@ -92,7 +81,7 @@ router.post('/approve-user', authenticateUser, authorizeRole('admin'), async (re
 });
 
 // Route to get all users
-router.get('/users', authenticateUser, authorizeRole('admin'), async (req, res) => {
+router.get('/users', async (req, res) => {
   try {
     const users = await User.find();
     res.json(users);
