@@ -1,12 +1,10 @@
 // routes/batchRoutes.js
-// Import required modules
 const express = require('express');
 const session = require('express-session');
 const flash = require('connect-flash');
 const router = express.Router();
 const Batch = require('../models/Batch');
 const Coordinator = require('../models/Coordinator');
-// const ClassSlot = require('../models/ClassSlot');
 
 // Add session middleware
 router.use(session({
@@ -17,7 +15,6 @@ router.use(session({
 
 // Add flash middleware
 router.use(flash());
-
 
 router.get('/', async (req, res) => {
   try {
@@ -30,40 +27,42 @@ router.get('/', async (req, res) => {
 });
 
 
+// POST: Create a new batch
 router.post('/', async (req, res) => {
   try {
-    const { batchNo, coordinatorId, coordinatorName } = req.body;
+    const { batchNo, coordinatorId } = req.body;
 
     // Validate input data
-    if (!batchNo || !coordinatorId || !coordinatorName) {
-      req.flash('error', 'Missing required fields');
+    if (!batchNo || !coordinatorId) {
       return res.status(400).json({ error: 'Missing required fields' });
     }
 
     // Check if the batch already exists
     const existingBatch = await Batch.findOne({ batchNo });
     if (existingBatch) {
-      req.flash('error', 'Batch already assigned');
       return res.status(400).json({ error: 'Batch already assigned' });
     }
+
     // Check if the coordinator is already assigned to another batch
-    const existingCoordinator = await Batch.findOne({ coordinatorId, coordinatorName });
+    const existingCoordinator = await Batch.findOne({ coordinatorId });
     if (existingCoordinator) {
-      req.flash('error', 'Coordinator already assigned to another batch');
       return res.status(400).json({ error: 'Coordinator already assigned to another batch' });
     }
 
-    const newBatch = new Batch({ batchNo, coordinatorId, coordinatorName });
+    // Fetch coordinator's email
+    const coordinator = await Coordinator.findById(coordinatorId);
+    if (!coordinator) {
+      return res.status(404).json({ error: 'Coordinator not found' });
+    }
+
+    const newBatch = new Batch({ batchNo, coordinatorId, coordinatorEmail: coordinator.email });
     const savedBatch = await newBatch.save();
-    req.flash('success', 'Batch assigned successfully');
     res.json({ message: 'Batch assigned successfully', data: savedBatch });
   } catch (error) {
     console.error('Error creating batch:', error);
-    req.flash('error', 'Failed to create batch');
     res.status(500).json({ error: 'Failed to create batch' });
   }
 });
-
 
 router.get('/:batchNo', async (req, res) => {
   try {
@@ -80,80 +79,14 @@ router.get('/:batchNo', async (req, res) => {
   }
 });
 
-
-// router.put('/:batchNo', async (req, res) => {
-//   try {
-//     const { coordinatorId, coordinatorName, isActive } = req.body;
-//     const batchNo = req.params.batchNo;
-
-//     // Validate input data
-//     if (!coordinatorId || !coordinatorName) {
-//       req.flash('error', 'Missing required fields');
-//       return res.status(400).json({ error: 'Missing required fields' });
-//     }
-
-//     // Check if the batch already exists (excluding the current batch)
-//     const existingBatch = await Batch.findOne({
-//       batchNo: { $ne: batchNo },
-//       coordinatorId,
-//     });
-//     if (existingBatch) {
-//       req.flash('error', 'Batch already assigned');
-//       return res.status(400).json({ error: 'Batch already assigned' });
-//     }
-
-//     // Check if the coordinator exists
-//     const coordinator = await Coordinator.findOne({ coordinatorId });
-//     if (!coordinator) {
-//       req.flash('error', 'Coordinator not found');
-//       return res.status(404).json({ error: 'Coordinator not found' });
-//     }
-
-//     // Update the batch
-//     const updatedBatch = await Batch.findOneAndUpdate(
-//       { batchNo },
-//       { coordinatorId, coordinatorName, isActive },
-//       { new: true }
-//     );
-//     if (!updatedBatch) {
-//       req.flash('error', 'Batch not found');
-//       return res.status(404).json({ error: 'Batch not found' });
-//     }
-//     req.flash('success', 'Batch updated successfully');
-//     res.json({ message: 'Batch updated successfully', data: updatedBatch });
-//   } catch (error) {
-//     console.error('Error updating batch:', error);
-//     req.flash('error', 'Failed to update batch');
-//     res.status(500).json({ error: 'Failed to update batch' });
-//   }
-// });
-
-
-router.delete('/:batchNo', async (req, res) => {
-  try {
-    const batch = await Batch.findOneAndDelete({ batchNo: req.params.batchNo });
-    if (!batch) {
-      req.flash('error', 'Batch not found');
-      return res.status(404).json({ error: 'Batch not found' });
-    }
-    req.flash('success', 'Batch deleted successfully');
-    res.json({ message: 'Batch deleted successfully' });
-  } catch (error) {
-    console.error('Error deleting batch:', error);
-    req.flash('error', 'Failed to delete batch');
-    res.status(500).json({ error: 'Failed to delete batch' });
-  }
-});
-
-
+// PUT: Update a batch
 router.put('/:batchNo', async (req, res) => {
   try {
-    const { coordinatorId, coordinatorName, isActive } = req.body;
+    const { coordinatorId, isActive } = req.body;
     const batchNo = req.params.batchNo;
 
     // Validate input data
-    if (!coordinatorId || !coordinatorName) {
-      req.flash('error', 'Missing required fields');
+    if (!coordinatorId) {
       return res.status(400).json({ error: 'Missing required fields' });
     }
 
@@ -162,32 +95,48 @@ router.put('/:batchNo', async (req, res) => {
       batchNo: { $ne: batchNo },
       coordinatorId,
     });
-
     if (existingBatch) {
-      req.flash('error', 'Batch already assigned');
       return res.status(400).json({ error: 'Batch already assigned' });
+    }
+
+    // Fetch coordinator's email
+    const coordinator = await Coordinator.findById(coordinatorId);
+    if (!coordinator) {
+      return res.status(404).json({ error: 'Coordinator not found' });
     }
 
     // Update the batch
     const updatedBatch = await Batch.findOneAndUpdate(
       { batchNo },
-      { coordinatorId, coordinatorName, isActive },
+      { coordinatorId, coordinatorEmail: coordinator.email, isActive },
       { new: true }
     );
-
     if (!updatedBatch) {
-      req.flash('error', 'Batch not found');
       return res.status(404).json({ error: 'Batch not found' });
     }
-
-    req.flash('success', 'Batch updated successfully');
     res.json({ message: 'Batch updated successfully', data: updatedBatch });
   } catch (error) {
     console.error('Error updating batch:', error);
-    req.flash('error', 'Failed to update batch');
     res.status(500).json({ error: 'Failed to update batch' });
   }
 });
+
+
+// DELETE: Delete a batch
+router.delete('/:batchNo', async (req, res) => {
+  try {
+    const batch = await Batch.findOneAndDelete({ batchNo: req.params.batchNo });
+    if (!batch) {
+      return res.status(404).json({ error: 'Batch not found' });
+    }
+    res.json({ message: 'Batch deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting batch:', error);
+    res.status(500).json({ error: 'Failed to delete batch' });
+  }
+});
+
+module.exports = router;
 
 
 // router.delete('/:batchNo', async (req, res) => {

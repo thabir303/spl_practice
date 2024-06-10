@@ -2,38 +2,15 @@ const express = require('express');
 const router = express.Router();
 const Teacher = require('../models/Teacher');
 
-// Middleware to check if the user is the program chair
-const isProgramChair = (req, res, next) => {
-  if (req.session.isProgramChairLoggedIn) {
-    next();
-  } else {
-    return res.status(401).json({ error: "Unauthorized (pC)" });
-  }
-};
+// // Middleware to check if the user is the program chair
+// const isProgramChair = (req, res, next) => {
+//   if (req.session.isProgramChairLoggedIn) {
+//     next();
+//   } else {
+//     return res.status(401).json({ error: "Unauthorized (pC)" });
+//   }
+// };
 
-// Create a new teacher
-router.post('/create', async (req, res) => {
-  try {
-    const { teacherName, departmentName, teacherId, assignedCourseNames = [] } = req.body;
-
-    // Check if teacherId already exists
-    if (await Teacher.findOne({ teacherId })) {
-      return res.status(400).json({ error: 'Teacher ID already exists' });
-    }
-
-    const newTeacher = new Teacher({
-      teacherName,
-      departmentName,
-      teacherId,
-      assignedCourseNames,
-    });
-
-    const savedTeacher = await newTeacher.save();
-    res.status(201).json({ message: 'Teacher created successfully', data: savedTeacher });
-  } catch (error) {
-    res.status(500).json({ error: 'Failed to create teacher' });
-  }
-});
 
 // Fetch all teachers
 router.get('/', async (req, res) => {
@@ -77,7 +54,7 @@ router.put('/edit/:teacherId', async (req, res) => {
 });
 
 // Delete a teacher by ID
-router.delete('/delete/:teacherId', isProgramChair, async (req, res) => {
+router.delete('/delete/:teacherId', async (req, res) => {
   try {
     const deletedTeacher = await Teacher.findOneAndDelete({ teacherId: req.params.teacherId });
     if (!deletedTeacher) {
@@ -90,3 +67,34 @@ router.delete('/delete/:teacherId', isProgramChair, async (req, res) => {
 });
 
 module.exports = router;
+
+
+
+
+
+
+
+
+// // Create a new teacher
+// router.post('/create', async (req, res) => {
+//   try {
+//     const { teacherName, departmentName, teacherId, assignedCourseNames = [] } = req.body;
+
+//     // Check if teacherId already exists
+//     if (await Teacher.findOne({ teacherId })) {
+//       return res.status(400).json({ error: 'Teacher ID already exists' });
+//     }
+
+//     const newTeacher = new Teacher({
+//       teacherName,
+//       departmentName,
+//       teacherId,
+//       assignedCourseNames,
+//     });
+
+//     const savedTeacher = await newTeacher.save();
+//     res.status(201).json({ message: 'Teacher created successfully', data: savedTeacher });
+//   } catch (error) {
+//     res.status(500).json({ error: 'Failed to create teacher' });
+//   }
+// });

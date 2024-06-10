@@ -4,7 +4,7 @@ const mongoose = require('mongoose');
 const roomSchema = new mongoose.Schema({
   building: {
     type: String,
-    required: true,
+    // required: true,
     default: 'IIT', // Fixed building to 'IIT'
   },
   roomNo: {

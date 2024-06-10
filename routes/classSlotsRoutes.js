@@ -16,16 +16,6 @@ const {
   PROGRAM_CHAIR_USER,
 } = require("../utils/auth");
 
-// Middleware to ensure the user is either program chair or coordinator
-const isAuthorizedUser = (req, res, next) => {
-  if (req.session.isProgramChairLoggedIn || req.session.isCoordinatorLoggedIn) {
-    req.user = { role: req.session.isProgramChairLoggedIn ? "admin" : "coordinator" };
-    next();
-  } else {
-    return res.status(401).json({ error: "Unauthorized from" });
-  }
-};
-
 // Create a new class slot
 router.post('/',  async (req, res) => {
   try {
@@ -34,6 +24,11 @@ router.post('/',  async (req, res) => {
     // Validate input data
     if (!semesterName || !day || !startTime || !endTime || !courseId || !teacherId || !roomNo || !section || !classType) {
       return res.status(400).json({ error: 'Missing required fields' });
+    }
+
+    // Check if endTime is after startTime
+    if (new Date(`1970-01-01T${endTime}:00`) <= new Date(`1970-01-01T${startTime}:00`)) {
+      return res.status(400).json({ error: 'End time must be after start time' });
     }
 
     // Check for existence of each field
@@ -59,6 +54,13 @@ router.post('/',  async (req, res) => {
       return res.status(400).json({ error: 'Invalid class type' });
     }
 
+    // Check if the course is assigned to the given semester
+    if (course.semesterName !== semesterName) {
+      return res.status(400).json({
+        error: `Course ${course.courseId} is assigned to semester ${course.semesterName}, but you are trying to use it in semester ${semesterName}.`,
+        solution: `Please use the course in its assigned semester (${course.semesterName}).`
+      });
+    }
     // Check for time conflicts within the same semester, room, teacher, and section
     const conflictMessages = [];
 
@@ -71,19 +73,20 @@ router.post('/',  async (req, res) => {
     });
 
     conflictClassSlots.forEach(slot => {
-      if (slot.roomNo === roomNo) {
-        if (slot.section === section) {
-          conflictMessages.push('Conflict: Overlapping class slot in the same room for the same section.');
-        } else {
-          conflictMessages.push('Conflict: Overlapping class slot in the same room for a different section.');
-        }
+      if (slot.roomNo === roomNo && slot.section === section) {
+        conflictMessages.push('Conflict: Overlapping class slot in the same room for the same section.');
       }
-      if (slot.teacherId === teacherId) {
-        if (slot.section === section) {
-          conflictMessages.push('Conflict: Overlapping class slot with the same teacher for the same section.');
-        } else {
-          conflictMessages.push('Conflict: Overlapping class slot with the same teacher for a different section.');
-        }
+      if (slot.roomNo === roomNo && slot.section !== section) {
+        conflictMessages.push('Conflict: Overlapping class slot in the same room for a different section.');
+      }
+      if (slot.teacherId === teacherId && slot.section === section) {
+        conflictMessages.push('Conflict: Overlapping class slot with the same teacher for the same section.');
+      }
+      if (slot.teacherId === teacherId && slot.section !== section) {
+        conflictMessages.push('Conflict: Overlapping class slot with the same teacher for a different section.');
+      }
+      if (slot.section === section && slot.roomNo !== roomNo) {
+        conflictMessages.push('Conflict: Overlapping class slot for the same section in different rooms.');
       }
     });
 
@@ -118,16 +121,26 @@ router.post('/',  async (req, res) => {
 });
 
 
-// Fetch all class slots
+// Route to get all class slots
 router.get('/', async (req, res) => {
   try {
-    const classSlots = await ClassSlot.find().populate('teacherId', 'teacherName');
-    res.json(classSlots);
+    const classSlots = await ClassSlot.find().lean(); // .lean() for better performance
+    const populatedClassSlots = await Promise.all(
+      classSlots.map(async (slot) => {
+        const teacher = await Teacher.findOne({ teacherId: slot.teacherId });
+        return {
+          ...slot,
+          teacherName: teacher ? teacher.teacherName : 'N/A',
+        };
+      })
+    );
+    res.json(populatedClassSlots);
   } catch (error) {
     console.error('Error fetching class slots:', error);
     res.status(500).json({ error: 'Failed to fetch class slots' });
   }
 });
+
 
 // Fetch a single class slot by ID and populate teacher name
 router.get('/:id', async (req, res) => {
@@ -143,9 +156,28 @@ router.get('/:id', async (req, res) => {
   }
 });
 
+
+// Route to fetch teacher name for a given class slot and teacher ID
+router.get('/:id/:teacherId', async (req, res) => {
+  try {
+    const { teacherId } = req.params;
+    const teacher = await Teacher.findOne({ teacherId });
+    // console.log(teacher);
+    if (!teacher) {
+      return res.status(404).json({ error: 'Teacher not found' });
+    }
+    res.json({ teacherName: teacher.teacherName });
+  } catch (error) {
+    console.error('Error fetching teacher name:', error);
+    res.status(500).json({ error: 'Failed to fetch teacher name' });
+  }
+});
+
+
 // Route to update a class slot by ID
 router.put('/:id', async (req, res) => {
   try {
+    const { id } = req.params;
     const { semesterName, day, startTime, endTime, courseId, teacherId, roomNo, section, classType } = req.body;
 
     // Validate input data
@@ -176,11 +208,24 @@ router.put('/:id', async (req, res) => {
       return res.status(400).json({ error: 'Invalid class type' });
     }
 
+    // Check if the course is assigned to the given semester
+    if (course.semesterName !== semesterName) {
+      return res.status(400).json({
+        error: `Course ${course.courseId} is assigned to semester ${course.semesterName}, but you are trying to use it in semester ${semesterName}.`,
+        solution: `Please use the course in its assigned semester (${course.semesterName}).`
+      });
+    }
+
+    // Check for valid time
+    if (new Date(`1970-01-01T${startTime}Z`) >= new Date(`1970-01-01T${endTime}Z`)) {
+      return res.status(400).json({ error: 'Start time must be before end time' });
+    }
+
     // Check for time conflicts within the same semester, room, teacher, and section
     const conflictMessages = [];
 
     const conflictClassSlots = await ClassSlot.find({
-      _id: { $ne: req.params.id }, // Exclude the current class slot being updated
+      _id: { $ne: id }, // Exclude the current class slot being updated
       semesterName,
       day,
       $or: [
@@ -189,19 +234,20 @@ router.put('/:id', async (req, res) => {
     });
 
     conflictClassSlots.forEach(slot => {
-      if (slot.roomNo === roomNo) {
-        if (slot.section === section) {
-          conflictMessages.push('Conflict: Overlapping class slot in the same room for the same section.');
-        } else {
-          conflictMessages.push('Conflict: Overlapping class slot in the same room for a different section.');
-        }
+      if (slot.roomNo === roomNo && slot.section === section) {
+        conflictMessages.push('Conflict: Overlapping class slot in the same room for the same section.');
       }
-      if (slot.teacherId === teacherId) {
-        if (slot.section === section) {
-          conflictMessages.push('Conflict: Overlapping class slot with the same teacher for the same section.');
-        } else {
-          conflictMessages.push('Conflict: Overlapping class slot with the same teacher for a different section.');
-        }
+      if (slot.roomNo === roomNo && slot.section !== section) {
+        conflictMessages.push('Conflict: Overlapping class slot in the same room for a different section.');
+      }
+      if (slot.teacherId === teacherId && slot.section === section) {
+        conflictMessages.push('Conflict: Overlapping class slot with the same teacher for the same section.');
+      }
+      if (slot.teacherId === teacherId && slot.section !== section) {
+        conflictMessages.push('Conflict: Overlapping class slot with the same teacher for a different section.');
+      }
+      if (slot.section === section && slot.roomNo !== roomNo) {
+        conflictMessages.push('Conflict: Overlapping class slot for the same section in different rooms.');
       }
     });
 
@@ -210,7 +256,7 @@ router.put('/:id', async (req, res) => {
     }
 
     // Update the class slot
-    const updatedClassSlot = await ClassSlot.findByIdAndUpdate(req.params.id, {
+    const updatedClassSlot = await ClassSlot.findByIdAndUpdate(id, {
       semesterName,
       day,
       startTime,
@@ -221,10 +267,6 @@ router.put('/:id', async (req, res) => {
       section,
       classType
     }, { new: true });
-
-    if (!updatedClassSlot) {
-      return res.status(404).json({ error: 'Class slot not found' });
-    }
 
     res.json({ message: 'Class slot updated successfully', data: updatedClassSlot });
   } catch (error) {
@@ -247,7 +289,38 @@ router.delete('/:id', async (req, res) => {
   }
 });
 
+// Route to fetch teacher name by class slot ID and teacher ID
+router.get('/:id/:teacherId', async (req, res) => {
+  try {
+    const { id, teacherId } = req.params;
+
+    // Find the class slot by ID
+    const classSlot = await ClassSlot.findById(id);
+    if (!classSlot) {
+      return res.status(404).json({ error: 'Class slot not found' });
+    }
+
+    // Verify the teacher ID matches the one in the class slot
+    if (classSlot.teacherId !== teacherId) {
+      return res.status(404).json({ error: 'Teacher not found in this class slot' });
+    }
+
+    // Find the teacher by ID
+    const teacher = await Teacher.findOne({ teacherId });
+    if (!teacher) {
+      return res.status(404).json({ error: 'Teacher not found' });
+    }
+
+    // Return the teacher name
+    res.json({ teacherName: teacher.teacherName });
+  } catch (error) {
+    console.error('Error fetching teacher name:', error);
+    res.status(500).json({ error: 'Failed to fetch teacher name' });
+  }
+});
+
 module.exports = router;
+
 
 
 

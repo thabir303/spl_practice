@@ -108,7 +108,7 @@ const dayRoutes = require('./routes/dayRoutes');
 app.use('/api/days', dayRoutes);
 
 const fullRoutineRoutes = require('./routes/fullRoutineRoutes');
-app.use('/api/fullRoutines', fullRoutineRoutes);
+app.use('/api/full-Routines', fullRoutineRoutes);
 
 const roomRoutes = require('./routes/roomRoutes');
 app.use('/api/rooms', roomRoutes);

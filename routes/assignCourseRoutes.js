@@ -98,21 +98,21 @@ router.get('/edit/:courseId', async (req, res) => {
 
     // Find the semester data
     const semesterData = await Semester.findOne({ semesterName: assignCourse.semesterName }).exec();
-    // if (!semesterData) {
-    //   return res.status(404).json({ error: 'Semester not found' });
-    // }
+    if (!semesterData) {
+      return res.status(404).json({ error: 'Semester not found' });
+    }
 
     // Find the teacher data
     const teacherData = await Teacher.findOne({ teacherName: assignCourse.teacherName }).exec();
-    // if (!teacherData) {
-    //   return res.status(404).json({ error: 'Teacher not found' });
-    // }
+    if (!teacherData) {
+      return res.status(404).json({ error: 'Teacher not found' });
+    }
 
     // Find the batch data
     const batchData = await Batch.findOne({ batchNo: assignCourse.batchNo }).exec();
-    // if (!batchData) {
-    //   return res.status(404).json({ error: 'Batch not found' });
-    // }
+    if (!batchData) {
+      return res.status(404).json({ error: 'Batch not found' });
+    }
 
     // Find the course data
     const courseData = await Promise.all(assignCourse.courseNames.map(async (courseName) => {

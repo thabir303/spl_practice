@@ -107,4 +107,35 @@ router.get('/users', async (req, res) => {
   }
 });
 
+// Route to delete a user
+router.delete('/delete-user/:userId', async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    // Find the user by userId
+    const user = await User.findOne({ userId });
+    if (!user) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+
+    // Delete the user based on their role
+    if (user.role === 'teacher') {
+      await Teacher.findOneAndDelete({ teacherId: userId });
+      console.log('Teacher deleted');
+    } else if (user.role === 'student') {
+      await Student.findOneAndDelete({ studentId: userId });
+      console.log('Student deleted');
+    }
+
+    // Delete the user
+    await User.findOneAndDelete({ userId });
+    console.log('User deleted');
+
+    res.json({ message: 'User deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting user:', error);
+    res.status(500).json({ error: 'Failed to delete user', details: error.message });
+  }
+});
+
 module.exports = router;
