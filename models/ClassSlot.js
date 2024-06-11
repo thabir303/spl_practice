@@ -3,10 +3,10 @@ const mongoose = require('mongoose');
 
 const classSlotSchema = new mongoose.Schema(
   {
-    semesterName: { type: String, required: true },
-    day: { type: String, required: true },
-    startTime: { type: String, required: true },
-    endTime: { type: String, required: true },
+    semesterName: { type: String,  },
+    day: { type: String,  },
+    startTime: { type: String,  },
+    endTime: { type: String, },
     courseId: { type: String, required: true },
     teacherId: { type: String, required: true },
     roomNo: { type: String, required: true },

@@ -23,17 +23,34 @@ const Semester = require("../models/Semester");
 // Fetch the full routine
 router.get('/', async (req, res) => {
   try {
-    const fullRoutine = await FullRoutine.find()
-      .populate('teacherId', 'teacherName')
-      .populate('courseId')
-      .populate('semesterName')
-      .populate('day')
-      .populate('roomNo')
-      .populate('section');
-    res.json(fullRoutine);
+    const fullRoutine = await FullRoutine.find();
+    const populatedFullRoutine = await Promise.all(fullRoutine.map(async (routine) => {
+      const teacher = await Teacher.findOne({ teacherId: routine.teacherId });
+      const course = await Course.findOne({ courseId: routine.courseId });
+      return {
+        ...routine._doc,
+        teacherName: teacher ? teacher.teacherName : 'N/A',
+        courseName: course ? course.courseName : 'N/A',
+      };
+    }));
+    res.json(populatedFullRoutine);
   } catch (error) {
     console.error('Error fetching full routine:', error);
     res.status(500).json({ error: 'Failed to fetch full routine' });
+  }
+});
+
+// Get a full routine by ID
+router.get('/:id', async (req, res) => {
+  try {
+    const routine = await FullRoutine.findById(req.params.id);
+    if (!routine) {
+      return res.status(404).json({ error: 'Routine not found' });
+    }
+    res.json(routine);
+  } catch (error) {
+    console.error('Error fetching routine:', error);
+    res.status(500).json({ error: 'Failed to fetch routine' });
   }
 });
 
@@ -162,6 +179,7 @@ router.put("/:id", async (req, res) => {
       courseId,
       roomNo,
       semesterName,
+      batchNo,
       classType
     } = req.body;
 
@@ -254,9 +272,14 @@ router.delete('/:id', async (req, res) => {
   try {
     const { id } = req.params;
 
+    // Check if the provided ID is a valid MongoDB ObjectId
+    // if (!mongoose.Types.ObjectId.isValid(id)) {
+    //   return res.status(400).json({ error: 'Invalid ID format' });
+    // }
+
     const deletedFullRoutine = await FullRoutine.findByIdAndDelete(id);
     if (!deletedFullRoutine) {
-      return res.status(404).json({ error: 'Full routine not found' });
+      //return res.status(404).json({ error: 'Full routine not found' });
     }
 
     res.json({ message: 'Full routine deleted successfully', data: deletedFullRoutine });

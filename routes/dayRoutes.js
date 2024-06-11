@@ -15,6 +15,32 @@ router.get('/', async (req, res) => {
     res.status(500).json({ error: 'Failed to fetch days' });
   }
 });
+// Route to create a new day
+router.post('/', async (req, res) => {
+  try {
+    const { dayNo } = req.body;
+
+    if (!dayNo) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+
+    const existingDay = await Day.findOne({ dayNo });
+    if (existingDay) {
+      return res.status(400).json({ error: 'Day with this number already exists' });
+    }
+
+    const newDay = new Day({
+      dayNo,
+      
+    });
+
+    const savedDay = await newDay.save();
+    res.json({ message: 'Day created successfully', data: savedDay });
+  } catch (error) {
+    console.error('Error creating day:', error);
+    res.status(500).json({ error: 'Failed to create day' });
+  }
+});
 
 // Route to get a specific day by ID
 router.get('/:id', async (req, res) => {
