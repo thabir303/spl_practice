@@ -26,19 +26,18 @@ router.get('/', async (req, res) => {
   }
 });
 
-
 // POST: Create a new batch
 router.post('/', async (req, res) => {
   try {
-    const { batchNo, coordinatorId } = req.body;
+    const { batchNo, semesterName, coordinatorId } = req.body;
 
     // Validate input data
-    if (!batchNo || !coordinatorId) {
+    if (!batchNo || !semesterName || !coordinatorId) {
       return res.status(400).json({ error: 'Missing required fields' });
     }
 
     // Check if the batch already exists
-    const existingBatch = await Batch.findOne({ batchNo });
+    const existingBatch = await Batch.findOne({ batchNo, semesterName });
     if (existingBatch) {
       return res.status(400).json({ error: 'Batch already assigned' });
     }
@@ -55,7 +54,7 @@ router.post('/', async (req, res) => {
       return res.status(404).json({ error: 'Coordinator not found' });
     }
 
-    const newBatch = new Batch({ batchNo, coordinatorId, coordinatorEmail: coordinator.email });
+    const newBatch = new Batch({ batchNo, semesterName, coordinatorId, coordinatorEmail: coordinator.email });
     const savedBatch = await newBatch.save();
     res.json({ message: 'Batch assigned successfully', data: savedBatch });
   } catch (error) {
@@ -82,17 +81,18 @@ router.get('/:batchNo', async (req, res) => {
 // PUT: Update a batch
 router.put('/:batchNo', async (req, res) => {
   try {
-    const { coordinatorId, isActive } = req.body;
+    const { semesterName, coordinatorId, isActive } = req.body;
     const batchNo = req.params.batchNo;
 
     // Validate input data
-    if (!coordinatorId) {
+    if (!coordinatorId || !semesterName) {
       return res.status(400).json({ error: 'Missing required fields' });
     }
 
     // Check if the batch already exists (excluding the current batch)
     const existingBatch = await Batch.findOne({
       batchNo: { $ne: batchNo },
+      semesterName,
       coordinatorId,
     });
     if (existingBatch) {
@@ -108,7 +108,7 @@ router.put('/:batchNo', async (req, res) => {
     // Update the batch
     const updatedBatch = await Batch.findOneAndUpdate(
       { batchNo },
-      { coordinatorId, coordinatorEmail: coordinator.email, isActive },
+      { semesterName, coordinatorId, coordinatorEmail: coordinator.email, isActive },
       { new: true }
     );
     if (!updatedBatch) {
@@ -120,7 +120,6 @@ router.put('/:batchNo', async (req, res) => {
     res.status(500).json({ error: 'Failed to update batch' });
   }
 });
-
 
 // DELETE: Delete a batch
 router.delete('/:batchNo', async (req, res) => {
@@ -139,6 +138,7 @@ router.delete('/:batchNo', async (req, res) => {
 module.exports = router;
 
 
+
 // router.delete('/:batchNo', async (req, res) => {
 //   try {
 //     const lowercaseBatchNo = req.params.batchNo.toLowerCase(); // Convert to lowercase
@@ -155,6 +155,10 @@ module.exports = router;
 //     res.status(500).json({ error: 'Failed to delete batch' });
 //   }
 // });
+
+module.exports = router;
+
+
 
 
 

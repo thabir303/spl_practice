@@ -14,4 +14,7 @@ const FullRoutineSchema = new Schema({
   classType: { type: String, required: true, enum: ['Lab', 'Theory'] }
 });
 
+FullRoutineSchema.index({ batchNo: 1 });
+
+
 module.exports = mongoose.model('FullRoutine', FullRoutineSchema);

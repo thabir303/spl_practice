@@ -5,7 +5,7 @@ const bcrypt = require("bcryptjs");
 const User = require("../models/User");
 const Teacher = require("../models/Teacher");
 const Student = require("../models/Student");
-
+const Batch =require("../models/Batch");
 const RoutineCommittee = require("../models/RoutineCommittee");
 const Coordinator = require("../models/Coordinator");
 const nodemailer = require("nodemailer");
@@ -116,24 +116,21 @@ router.post("/approveUser", async (req, res) => {
       return res.status(400).json({ error: "User already approved" });
     }
     user.status = "approved";
-    await user.save();
-
-    // Save user data to the respective schema
     if (user.role === "teacher") {
       if (!teacherId) {
         return res.status(400).json({ error: "teacherId is required for teacher approval" });
       }
-
       const existingTeacher = await Teacher.findOne({ $or: [{ teacherId }, { email: user.email }] });
       if (existingTeacher) {
         return res.status(400).json({ error: "Teacher ID or email already exists" });
       }
-
+      user.teacherId = teacherId; // Assign teacherId here
+      await user.save(); // Save user with teacherId
       const newTeacher = new Teacher({
         teacherId,
         teacherName: user.name,
         email: user.email,
-        departmentName: "IIT", // Set default or retrieve from request body
+        departmentName: "IIT",
         assignedCourses: [] // Initialize with an empty array
       });
       await newTeacher.save();
@@ -142,12 +139,10 @@ router.post("/approveUser", async (req, res) => {
       if (!batchNo) {
         return res.status(400).json({ error: "batchNo is required for student approval" });
       }
-
       const existingStudent = await Student.findOne({ $or: [{ studentId: user.userId }, { email: user.email }] });
       if (existingStudent) {
         return res.status(400).json({ error: "Student ID or email already exists" });
       }
-
       const newStudent = new Student({
         studentId: user.userId,
         name: user.name,
@@ -159,7 +154,6 @@ router.post("/approveUser", async (req, res) => {
     } else {
       return res.status(400).json({ error: "Invalid user role" });
     }
-
     console.log("User approved:", user);
     res.json({ message: "User approved successfully" });
   } catch (error) {
@@ -174,18 +168,11 @@ router.post("/approveUser", async (req, res) => {
 // routes/authRoutes.js
 
 
+// routes/authRoutes.js
 router.post("/login", async (req, res) => {
   try {
     const { email, password } = req.body;
     console.log("Login request received with:", { email, password });
-
-    // Check if the user is the program chair
-    if (email === PROGRAM_CHAIR_USER.email && password === PROGRAM_CHAIR_USER.password) {
-      req.session.isProgramChairLoggedIn = true;
-      req.session.user = PROGRAM_CHAIR_USER; // Store user info in session
-      const token = generateToken(PROGRAM_CHAIR_USER); // Generate token
-      return res.json({ ...PROGRAM_CHAIR_USER, token, role: 'admin' });
-    }
 
     // Check if the user exists
     const user = await User.findOne({ email });
@@ -200,12 +187,12 @@ router.post("/login", async (req, res) => {
     }
 
     // Check if the user is a coordinator
-    if (user.role === "coordinator") {
-      req.session.isCoordinatorLoggedIn = true;
-      req.session.user = { role: "coordinator", email: user.email }; // Store user info in session
-      const token = generateToken(user); // Generate token
-      return res.json({ message: "Coordinator logged in successfully", token, role: user.role });
-    }
+    // if (user.role === "coordinator") {
+    //   // req.session.isCoordinatorLoggedIn = true;
+    //   // req.session.user = { role: "coordinator", email: user.email }; // Store user info in session
+    //   const token = generateToken(user); // Generate token
+    //   return res.json({ message: "Coordinator logged in successfully", token, role: user.role });
+    // }
 
     // Check if the user's status is approved for other roles
     if (user.status !== "approved") {
@@ -214,15 +201,18 @@ router.post("/login", async (req, res) => {
       });
     }
 
-    req.session.user = {
+    // If user is a teacher, include teacherId
+    let userData = {
+      _id: user._id,
       email: user.email,
       role: user.role,
       status: user.status,
+      teacherId: user.teacherId,
     };
 
     // Generate a token for the user
-    const token = generateToken(user);
-    res.json({ message: "Login successful", token, role: user.role });
+    const token = generateToken(userData);
+    res.json({ message: "Login successful", user: userData, token, role: user.role });
   } catch (error) {
     console.error("Error during login:", error);
     res.status(500).json({ error: "Failed to log in" });
@@ -245,6 +235,39 @@ router.post("/logout", (req, res) => {
 // Example protected route
 router.get("/protected", (req, res) => {
   res.json({ message: "You have access to this protected route." });
+});
+
+// Route to add a new program chair
+router.post('/program-chair', async (req, res) => {
+  try {
+    const { email, password } = req.body;
+
+    // Check if the user already exists
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      return res.status(400).json({ error: 'User with this email already exists' });
+    }
+
+    // Hash the password
+    const hashedPassword = await bcrypt.hash(password, 10);
+
+    // Create a new user with the role of program chair
+    const newUser = new User({
+      userId: email, // Assuming userId is the email for simplicity
+      name: 'Program Chair',
+      email,
+      password: hashedPassword,
+      role: 'admin',
+      status: 'approved', // Automatically approve the program chair
+    });
+
+    await newUser.save();
+
+    res.json({ message: 'Program Chair created successfully', user: newUser });
+  } catch (error) {
+    console.error('Error creating program chair:', error);
+    res.status(500).json({ error: 'Failed to create program chair' });
+  }
 });
 
 // Route for creating a new coordinator (accessible only to program chair)
@@ -361,6 +384,70 @@ router.get('/coordinators', async (req, res) => {
     res.status(500).json({ error: 'Failed to fetch coordinators' });
   }
 });
+
+// Route to assign a coordinator from existing teachers
+// Route to assign a coordinator from existing teachers
+router.post("/assign-coordinator", async (req, res) => {
+  try {
+    const { teacherId, batchNo, expired_date } = req.body;
+
+    // Check if the teacher exists in the Teacher schema
+    const teacher = await Teacher.findOne({ teacherId });
+    if (!teacher) {
+      return res.status(404).json({ error: 'Teacher not found' });
+    }
+
+    // Check if the batchNo is unique
+    const existingCoordinator = await Coordinator.findOne({ batchNo });
+    if (existingCoordinator) {
+      return res.status(400).json({ error: "Batch number already assigned to another coordinator" });
+    }
+
+    console.log(teacher.email);
+    console.log(teacher.password);
+    console.log(teacher.teacherName);
+    console.log(teacher.teacherId);
+
+    // Create a new Coordinator document
+    const newCoordinator = new Coordinator({
+      coordinatorId: teacher.teacherId,
+      coordinatorName: teacher.teacherName,
+      email: teacher.email,
+      password: teacher.password,
+      batchNo,
+      expired_date: new Date(expired_date),
+      in_committee: true
+    });
+
+    await newCoordinator.save();
+
+    // Check if the user already exists in the User schema
+    let user = await User.findOne({ userId: teacher.teacherId });
+    if (user) {
+      // Update the user role to coordinator
+      user.role = 'coordinator';
+      await user.save();
+    } else {
+      // Create a new User document if it doesn't exist
+      user = new User({
+        userId: teacher.teacherId,
+        name: teacher.teacherName,
+        email: teacher.email,
+        password: teacher.password, // Ensure the password is hashed
+        role: 'coordinator'
+      });
+      await user.save();
+    }
+
+    res.json({ message: "Coordinator assigned successfully", data: newCoordinator });
+  } catch (error) {
+    console.error("Error assigning coordinator:", error.message);
+    res.status(500).json({ error: "Failed to assign coordinator", details: error.message });
+  }
+});
+
+
+module.exports = router;
 
 // Route to get a coordinator by ID
 router.get('/coordinators/:coordinatorId', async (req, res) => {

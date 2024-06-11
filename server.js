@@ -45,32 +45,6 @@ db.once('open', async () => {
    // console.error('Error initializing sections:', err);
   }
 
-  // try {
-  //   // Define the days to be created
-  //   const daysToCreate = [
-  //     { dayNo: 'Saturday' },
-  //     { dayNo: 'Sunday' },
-  //     { dayNo: 'Monday' },
-  //     { dayNo: 'Tuesday' },
-  //     { dayNo: 'Wednesday' },
-  //     { dayNo: 'Thursday' },
-  //     { dayNo: 'Friday' },
-  //   ];
-
-  //   // Check if days already exist in the database
-  //   const existingDays = await Day.find();
-  //   if (existingDays.length === 0) {
-  //     // Create the days in the database
-  //     const createdDays = await Day.createDays(daysToCreate);
-  //     //console.log('Days created:', createdDays);
-  //   } else {
-  //     //console.log('Days already exist in the database.');
-  //   }
-  // } catch (error) {
-  //   //console.error('Error creating days:', error);
-  // }
-
-
 });
 
 app.use(

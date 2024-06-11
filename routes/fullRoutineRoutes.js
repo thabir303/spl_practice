@@ -1,5 +1,7 @@
 //routes/fullRoutineRoutes.js
+
 const express = require("express");
+const mongoose = require('mongoose');
 const router = express.Router();
 const FullRoutine = require("../models/FullRoutine");
 const Day = require("../models/Day");
@@ -9,16 +11,7 @@ const Course = require("../models/Course");
 const Room = require("../models/Room");
 const TimeSlot = require("../models/TimeSlot");
 const Semester = require("../models/Semester");
-
-// Middleware to ensure the user is either program chair or coordinator
-// const isProgramChairOrCoordinator = (req, res, next) => {
-//   if (req.session.isProgramChairLoggedIn || req.session.isCoordinatorLoggedIn) {
-//     req.user = { role: req.session.isProgramChairLoggedIn ? "admin" : "coordinator" };
-//     next();
-//   } else {
-//     return res.status(401).json({ error: "Unauthorized" });
-//   }
-// };
+const ClassSlot=require("../models/ClassSlot");
 
 // Fetch the full routine
 router.get('/', async (req, res) => {
@@ -40,19 +33,7 @@ router.get('/', async (req, res) => {
   }
 });
 
-// Get a full routine by ID
-router.get('/:id', async (req, res) => {
-  try {
-    const routine = await FullRoutine.findById(req.params.id);
-    if (!routine) {
-      return res.status(404).json({ error: 'Routine not found' });
-    }
-    res.json(routine);
-  } catch (error) {
-    console.error('Error fetching routine:', error);
-    res.status(500).json({ error: 'Failed to fetch routine' });
-  }
-});
+
 
 // GET /fullRoutines/:batchNo
 router.get("/batch/:batchNo", async (req, res) => {
@@ -223,7 +204,7 @@ router.put("/:id", async (req, res) => {
 
     res.json({ message: "Successfully updated", data: updatedFullRoutine });
   } catch (error) {
-    console.error("Error updating full routine:", error);
+   console.error("Error updating full routine:", error);
     res.status(500).json({ error: "Failed to update full routine" });
   }
 });
@@ -262,7 +243,7 @@ router.delete("/:semesterName", async (req, res) => {
 
     res.json({ message: "Successfully deleted", data: deletedFullRoutine });
   } catch (error) {
-    console.error("Error deleting full routine:", error);
+   console.error("Error deleting full routine:", error);
     res.status(500).json({ error: "Failed to delete full routine" });
   }
 });
@@ -273,13 +254,13 @@ router.delete('/:id', async (req, res) => {
     const { id } = req.params;
 
     // Check if the provided ID is a valid MongoDB ObjectId
-    // if (!mongoose.Types.ObjectId.isValid(id)) {
-    //   return res.status(400).json({ error: 'Invalid ID format' });
-    // }
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({ error: 'Invalid ID format' });
+    }
 
     const deletedFullRoutine = await FullRoutine.findByIdAndDelete(id);
     if (!deletedFullRoutine) {
-      //return res.status(404).json({ error: 'Full routine not found' });
+      return res.status(404).json({ error: 'Full routine not found' });
     }
 
     res.json({ message: 'Full routine deleted successfully', data: deletedFullRoutine });
@@ -288,6 +269,151 @@ router.delete('/:id', async (req, res) => {
     res.status(500).json({ error: 'Failed to delete full routine' });
   }
 });
+
+// Route to get class slots for a specific faculty and day
+router.get('/class-slots', async (req, res) => {
+  try {
+    const { facultyId, day } = req.query;
+
+    const classSlots = await ClassSlot.find({ teacherId: facultyId, day });
+    res.json(classSlots);
+  } catch (error) {
+    console.error('Error fetching class slots:', error);
+    res.status(500).json({ error: 'Failed to fetch class slots' });
+  }
+});
+
+// Fetch all routines for a specific teacher
+router.get('/teacher/:teacherId', async (req, res) => {
+  try {
+    const { teacherId } = req.params;
+    const routines = await FullRoutine.find({ teacherId });
+    res.json(routines);
+  } catch (error) {
+    console.error('Error fetching routines for teacher:', error);
+    res.status(500).json({ error: 'Failed to fetch routines for teacher' });
+  }
+});
+
+
+// Route to reschedule a routine
+router.put('/reschedule/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { day, startTime, endTime, roomNo } = req.body;
+
+    const updatedRoutine = await FullRoutine.findByIdAndUpdate(
+      id,
+      { day, startTime, endTime, roomNo },
+      { new: true }
+    );
+
+    if (!updatedRoutine) {
+      return res.status(404).json({ error: 'Routine not found' });
+    }
+
+    res.json({ message: 'Routine rescheduled successfully', data: updatedRoutine });
+  } catch (error) {
+    console.error('Error rescheduling routine:', error);
+    res.status(500).json({ error: 'Failed to reschedule routine' });
+  }
+});
+
+
+// Get a full routine by ID
+router.get('/:id', async (req, res) => {
+  try {
+    const routineId = req.params.id;
+    console.log('Fetching routine with ID:', routineId);
+
+    // Check if the provided ID is a valid MongoDB ObjectId
+    if (!mongoose.Types.ObjectId.isValid(routineId)) {
+      console.log('Invalid ID format:', routineId);
+      return res.status(400).json({ error: 'Invalid ID format' });
+    }
+
+    const routine = await FullRoutine.findById(routineId)
+    .populate('teacherId', 'teacherName')
+    .populate('courseId', 'courseName');
+    
+    if (!routine) {
+      console.log('Routine not found with ID:', routineId);
+      return res.status(404).json({ error: 'Routine not found' });
+    }
+
+    console.log('Routine found:', routine);
+    res.json(routine);
+  } catch (error) {
+    console.error('Error fetching routine:', error);
+    res.status(500).json({ error: 'Failed to fetch routine' });
+  }
+});
+
+router.get('/sorted-by-batch', async (req, res) => {
+  try {
+    const routines = await FullRoutine.find().sort({ batchNo: 1 });
+    res.json(routines);
+  } catch (error) {
+    console.error('Error fetching sorted routines:', error);
+    res.status(500).json({ error: 'Failed to fetch sorted routines' });
+  }
+});
+
+router.get('/available-times', (req, res) => {
+  const availableTimes = [
+    '08:00', '09:00', '10:00', '11:00', '12:00',
+    '14:00', '15:00', '16:00', '17:00', '18:00', '19:00',
+  ];
+  res.json(availableTimes);
+});
+
+
+router.post('/check-conflicts', async (req, res) => {
+  try {
+    const { routineId, startTime, endTime } = req.body;
+    const conflict = await FullRoutine.findOne({
+      _id: { $ne: routineId },
+      $or: [
+        { startTime: { $lte: endTime, $gte: startTime } },
+        { endTime: { $gte: startTime, $lte: endTime } },
+      ],
+    });
+
+    res.json({ conflict: !!conflict });
+  } catch (error) {
+    console.error('Error checking for conflicts:', error);
+    res.status(500).json({ error: 'Failed to check for conflicts' });
+  }
+});
+
+// routes/fullRoutineRoutes.js
+router.get('/available-days', async (req, res) => {
+  try {
+    const days = await Day.find(); // Fetch days from your Day model
+    res.json(days);
+  } catch (error) {
+    console.error('Error fetching days:', error);
+    res.status(500).json({ error: 'Failed to fetch days' });
+  }
+});
+
+router.get('/available-rooms', async (req, res) => {
+  try {
+    const rooms = await Room.find(); // Fetch rooms from your Room model
+    res.json(rooms);
+  } catch (error) {
+    console.error('Error fetching rooms:', error);
+    res.status(500).json({ error: 'Failed to fetch rooms' });
+  }
+});
+
+
+
+// routes/fullRoutineRoutes.js
+
+
+
+
 
 module.exports = router;
 

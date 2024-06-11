@@ -9,6 +9,7 @@ const batchSchema = new mongoose.Schema(
     coordinatorId: { type: String, required: true },
     coordinatorEmail: { type: String, required: true },
     isActive: { type: Boolean, default: true },
+    semesterName: { type: String, required: true } 
   },
   { timestamps: true }
 );

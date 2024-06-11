@@ -4,8 +4,8 @@ const mongoose = require('mongoose');
 const userSchema = new mongoose.Schema({
   userId: {
     type: String,
-    // required: true,
-    // unique: true,
+    required: true,
+    unique: true,
   },
   name: {
     type: String,
@@ -18,24 +18,29 @@ const userSchema = new mongoose.Schema({
   },
   password: {
     type: String,
-    required: true,
+    // required: true,
   },
   role: {
     type: String,
     required: true,
   },
-  status: {  // Added status field to handle approval
+  status: {
     type: String,
     required: true,
-    default: 'pending'  // Default status is 'pending' upon creation
-  }
+    default: 'pending',
+  },
+  teacherId: {
+    type: String, // Ensure this field is included and not commented out
+    require : true,
+    default: null,
+  },
 }, {
   timestamps: true,
 });
 
 const User = mongoose.model('User', userSchema);
-
 module.exports = User;
+
 
 
 

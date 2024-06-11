@@ -5,24 +5,26 @@ const User = require('../models/User');
 const JWT_SECRET = 'ihaveNoSecretKey@@'; // Replace with a strong secret key
 
 // Define the program chair user
-const PROGRAM_CHAIR_USER = {
-  _id: 'programchair@iit.du.ac.bd',
-  name: 'Program Chair',
-  email: 'programchair@iit.du.ac.bd',
-  password: 'programchairPassword',
-  role: 'admin',
-};
+// const PROGRAM_CHAIR_USER = {
+//   _id: 'programchair@iit.du.ac.bd',
+//   name: 'Program Chair',
+//   email: 'programchair@iit.du.ac.bd',
+//   password: 'programchairPassword',
+//   role: 'admin',
+// };
 
 const generateToken = (user) => {
   const payload = {
     userId: user._id,
     role: user.role,
+    teacherId: user.teacherId || null,
   };
+
   console.log("Generating token with payload:", payload);
   return jwt.sign(payload, JWT_SECRET, { expiresIn: '1h' });
 };
 
-module.exports = { generateToken, PROGRAM_CHAIR_USER };
+module.exports = { generateToken };
 
 
 

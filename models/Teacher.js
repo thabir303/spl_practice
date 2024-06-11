@@ -8,6 +8,7 @@ const teacherSchema = new Schema({
   teacherName: { type: String },
   departmentName: { type: String, default: "IIT" },
   assignedCourses: { type: [String]},
+  password:{type: String },
 });
 
 const Teacher = mongoose.model('Teacher', teacherSchema);
